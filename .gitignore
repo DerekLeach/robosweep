@@ -1,0 +1,5 @@
+node_modules
+docs/scripts
+docs/workers
+docs/service-worker*
+**/tsconfig.tsbuildinfo

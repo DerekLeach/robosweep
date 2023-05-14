@@ -1,4 +1,8 @@
 import sendMessage from './message.js';
+import Motors from './motors.js';
+import General from './general.js';
+import Sound from './sound.js';
+import IRProximity from './ir-proximity.js';
 
 export const robotServices = {
   identifier: {
@@ -26,15 +30,22 @@ export const robotServices = {
 
 export class Robot {
   server: BluetoothRemoteGATTServer;
-  packetID: number;
-  eventID: number;
-  requestStack: [number, number, number][];
+
+  packetID = 0;
+  eventID: string;
+  requestStack: [number, number, number][] = [];
+
+  general = new General(this);
+  motors = new Motors(this);
+  sound = new Sound(this);
+  irProximity = new IRProximity(this);
 
   constructor(server: BluetoothRemoteGATTServer) {
     this.server = server;
-    this.packetID = 0;
-    this.requestStack = [];
-    this.eventID = 0;
+    this.eventID = "Event ID for: " + server.device.id;
+    if (!sessionStorage.getItem(this.eventID)) {
+      sessionStorage.setItem(this.eventID, "-1");
+    }
   }
 
   async listenForIncomingPackets() {
@@ -45,7 +56,6 @@ export class Robot {
   }
 
   receiveUARTPackets(characteristic: BluetoothRemoteGATTCharacteristic) {
-    sendMessage("new value", 2000);
     if (characteristic.value instanceof DataView) {
       const packet = new Uint8Array(characteristic.value.buffer);
       if (this.#calculateCRC(packet) === 0 && packet.length === 20) {
@@ -65,7 +75,7 @@ export class Robot {
             break;
           case 1: // Motors
             if (command === 29) {
-              sendMessage("Motor stalled", 5000);
+              // this.#motorStalled(payload);
               this.#updateEventID(packetID);
             } else if (command === 19 || command === 20) {
               sendMessage(this.#dockStatus(payload));
@@ -73,22 +83,46 @@ export class Robot {
               this.#positionStatus(payload);
             }
             break;
-          // case 3: // LED Lights
-          //   break;
-          // case 5: // Sound
-          //   break;
+          case 5: // Sound
+            switch (command) {
+              case 0: sendMessage("Finished playing note"); break;
+              case 4: sendMessage("Finished saying phrase"); break;
+              case 5: sendMessage("Finished playing sweep"); break;
+            }
+            break;
           // case 11: // IR Proximity
           //   break;
-          // case 12: // Bumpers
-          //   break;
-          // case 14: // Battery
-          //   break;
+          case 12: // Bumpers
+            if (command === 0) {
+              this.#updateEventID(packetID);
+              const time = this.#readTimestamp(payload.subarray(0, 4))
+              const state = payload.at(4);
+              let bumper;
+              switch (state) {
+                case 0x00: bumper = "None"; break;
+                case 0x40: bumper = "Right"; break;
+                case 0x80: bumper = "Left"; break;
+                case 0xC0: bumper = "Both"; break;
+              }
+              sendMessage(time + "Bumper: " + bumper);
+            }
+            break;
+          case 14: // Battery
+            if (command === 0) this.#updateEventID(packetID)
+            sendMessage(this.#readBatteryLevel(payload));
+            break;
           // case 16: // Accelerometer
           //   break;
           // case 17: // Touch Sensors
           //   break;
-          // case 19: // Docking Sensors
-          //   break;
+          case 19: // Docking Sensors
+            if (command === 0) {
+              this.#updateEventID(packetID);
+              sendMessage(this.#dockingSensor(payload), 500);
+            } else if (command === 1) {
+              sendMessage(this.#dockingSensor(payload));
+            }
+            break;
           // case 20: // Cliff Sensor
           //   break;
           // case 100: // Connectivity
@@ -105,138 +139,40 @@ export class Robot {
     }
   }
 
-  async getVersions(board: "main" | "color"): Promise<void> {
-    const device = 0;
-    const command = 0;
-    const payload = new Uint8Array(1);
-    if (board === "main") {
-      payload.set([0xA5]);
-    } else if (board === "color") {
-      payload.set([0xC6]);
-    }
-    await this.#sendPacket(device, command, payload, true);
-  }
-
-  async getName() {
-    const device = 0;
-    const command = 2;
-    await this.#sendPacket(device, command, undefined, true);
-  }
-
-  async enableEvents(deviceEvents: number[]) {
-    const device = 0;
-    const command = 7;
-
-    const payload = new Uint8Array(16);
-    payload.fill(255);
-    // for (const event of events) {
-
-    // }
-    // payload.set([1],15);
-    await this.#sendPacket(device, command, payload);
-
-  }
-
-  async getEnabledEvents() {
-    const device = 0;
-    const command = 11;
-    await this.#sendPacket(device, command, undefined, true);
-  }
-
-  async getSerialNumber() {
-    const device = 0;
-    const command = 14;
-    await this.#sendPacket(device, command, undefined, true);
-  }
-
-  async getSKU() {
-    const device = 0;
-    const command = 15;
-    await this.#sendPacket(device, command, undefined, true);
-  }
-
-  async setLeftAndRightMotorSpeed(leftMotorSpeed: number, rightMotorSpeed: number): Promise<void> {
-    const device = 1;
-    const command = 4;
-    const motorSpeeds = new Int32Array(2);
-    motorSpeeds.fill(0);
-    leftMotorSpeed = leftMotorSpeed > 100 ? 100 : leftMotorSpeed;
-    leftMotorSpeed = leftMotorSpeed < -100 ? -100 : leftMotorSpeed;
-    rightMotorSpeed = rightMotorSpeed > 100 ? 100 : rightMotorSpeed;
-    rightMotorSpeed = rightMotorSpeed < -100 ? -100 : rightMotorSpeed;
-    motorSpeeds.set([rightMotorSpeed, leftMotorSpeed]);
-    const payload = new Uint8Array(motorSpeeds.buffer).reverse();
-    await this.#sendPacket(device, command, payload);
-  }
-
-  async setLeftMotorSpeed(leftMotorSpeed: number): Promise<void> {
-    const device = 1;
-    const command = 6;
-    const motorSpeed = new Int32Array(1);
-    motorSpeed.fill(0);
-    leftMotorSpeed = leftMotorSpeed > 100 ? 100 : leftMotorSpeed;
-    leftMotorSpeed = leftMotorSpeed < -100 ? -100 : leftMotorSpeed;
-    motorSpeed.set([leftMotorSpeed]);
-    const payload = new Uint8Array(motorSpeed.buffer).reverse();
-    await this.#sendPacket(device, command, payload);
-  }
-
-  async setRightMotorSpeed(rightMotorSpeed: number): Promise<void> {
-    const device = 1;
-    const command = 7;
-    const motorSpeed = new Int32Array(1);
-    motorSpeed.fill(0);
-    rightMotorSpeed = rightMotorSpeed > 100 ? 100 : rightMotorSpeed;
-    rightMotorSpeed = rightMotorSpeed < -100 ? -100 : rightMotorSpeed;
-    motorSpeed.set([rightMotorSpeed]);
-    const payload = new Uint8Array(motorSpeed.buffer).reverse();
-    await this.#sendPacket(device, command, payload);
-  }
-
-  async driveDistance(distance: number): Promise<void> {
-    const device = 1;
-    const command = 8;
+  async setLEDAnimation(
+    state: "off" | "on" | "blink" | "spin",
+    red: number,
+    green: number,
+    blue: number
+  ): Promise<void> {
     const payload = new Uint8Array(4);
-    distance = distance >= 2**31 ? 2**31 - 1 : distance;
-    distance = distance < -(2**31) ? -(2**31) : distance;
-    distance = distance < 0 ? distance + 2**32 : distance;
-    const distanceArray = [];
-    for (let i = 3; i >= 0; i--) {
-      distanceArray.push(Math.floor(distance/(256**i)) % 256);
+
+    let stateByte;
+    switch (state) {
+      case "off": stateByte = 0; break;
+      case "on": stateByte = 1; break;
+      case "blink": stateByte = 2; break;
+      case "spin": stateByte = 3; break;
     }
-    payload.set(distanceArray);
-    console.log(payload.toString());
-    await this.#sendPacket(device, command, payload, true);
-  }
-  
-  async getPosition(): Promise<void> {
-    const device =1;
-    const command = 16;
-    await this.#sendPacket(device, command, undefined, true);
-  }
 
-  async dock(): Promise<void> {
-    const device = 1;
-    const command = 19;
-
-    sendMessage("Requesting dock", 4000);
-    await this.#sendPacket(device, command, undefined, true);
-    sendMessage("Docking", 4000);
-  }
-
-  async undock(): Promise<void> {
-    const device = 1;
-    const command = 20;
-
-    sendMessage("Requesting undock", 4000);
-    await this.#sendPacket(device, command, undefined, true);
-    sendMessage("Undocking", 4000);
+    payload.set([stateByte, red, green, blue]);
+    await this.sendPacket(3, 2, false, payload);
   }
 
   async getBatteryLevel(): Promise<void> {
-    const device = 14;
-    const command = 1;
-    await this.#sendPacket(device, command);
+    await this.sendPacket(14, 1, true);
+  }
+
+  async getDockingValues(): Promise<void> {
+    await this.sendPacket(19, 1, true);
+  }
+
+  async getIPv4Addresses(): Promise<void> {
+    await this.sendPacket(100, 1, true);
+  }
+
+  async requestEasyUpdate(): Promise<void> {
+    await this.sendPacket(100, 2);
   }
 
   #getNewPacketID(): number {
@@ -248,13 +184,15 @@ export class Robot {
     }
   }
 
-  #updateEventID(packetID: number) {
-    const twosCompliment = new Uint8Array([packetID - this.eventID])
-    const lostPackets = twosCompliment.at(0)! - 1;
+  #updateEventID(eventID: number) {
+    const oldEventID = Number(sessionStorage.getItem(this.eventID))
+    let lostPackets = eventID - (oldEventID + 1);
+    lostPackets = lostPackets < 0 ? lostPackets + 256 : lostPackets;
     if (lostPackets > 0) {
-      sendMessage(lostPackets.toString() + " packets lost.", 4000);
+      sendMessage(lostPackets + " packets lost.");
     }
-    this.eventID = packetID;
+    // this.eventID = eventID;
+    sessionStorage.setItem(this.eventID, eventID.toString());
   }
 
   #checkRequestStack(packet: [number, number, number]): void {
@@ -316,27 +254,20 @@ export class Robot {
         return "Unknown command";
     }
   }
-  
+
   #positionStatus(payload: Uint8Array): void {
-    const timestamp = payload.at(0)!*256**3 + payload.at(1)!*256**2 + payload.at(2)!*256 + payload.at(3)!;
-    let x = payload.at(4)!*256**3 + payload.at(5)!*256**2 + payload.at(6)!*256 + payload.at(7)!;
-    let y = payload.at(8)!*256**3 + payload.at(9)!*256**2 + payload.at(10)!*256 + payload.at(11)!;
-    x = x > 2**31 ? x - 2**32 : x;
-    y = y > 2**31 ? y - 2**32 : y;
-    const heading = (payload.at(12)!*256 + payload.at(13)!)/10.0;
-    const milliseconds = timestamp % 1000;
-    const seconds = Math.floor((timestamp / 1000) % 60);
-    const minutes = Math.floor((timestamp / 1000 / 60) % 60);
-    const hours = Math.floor((timestamp / 1000 / 60 / 60));
-    const time = "Timestamp: " + [hours.toString(), minutes.toString().padStart(2, "0"), seconds.toString().padStart(2, "0")].join(":") + "." + milliseconds;
-    // return time;
+    let x = payload.at(4)! * 256 ** 3 + payload.at(5)! * 256 ** 2 + payload.at(6)! * 256 + payload.at(7)!;
+    let y = payload.at(8)! * 256 ** 3 + payload.at(9)! * 256 ** 2 + payload.at(10)! * 256 + payload.at(11)!;
+    x = x > 2 ** 31 ? x - 2 ** 32 : x;
+    y = y > 2 ** 31 ? y - 2 ** 32 : y;
+    const heading = (payload.at(12)! * 256 + payload.at(13)!) / 10.0;
+    const time = this.#readTimestamp(payload.subarray(0, 4));
     sendMessage(time);
-    sendMessage("x: " + x/10.0 + "cm; y: " + y/10.0 + "cm");
+    sendMessage("x: " + x / 10.0 + "cm; y: " + y / 10.0 + "cm");
     sendMessage("heading: " + heading.toString() + "°");
   }
-  
+
   #dockStatus(payload: Uint8Array): string {
-    const timestamp = payload.at(0)!*256**3 + payload.at(1)!*256**2 + payload.at(2)!*256 + payload.at(3)!;
     let status = "Unknown";
     if (payload.at(4)! === 0) {
       status = "Succeeded";
@@ -345,25 +276,46 @@ export class Robot {
     } else if (payload.at(4)! === 2) {
       status = "Canceled";
     }
+    const time = this.#readTimestamp(payload.subarray(0, 4));
     const result = payload.at(5)! === 0 ? "Not docked" : "Docked";
+    return [time, result, status].join("\n");
+  }
+
+  #dockingSensor(payload: Uint8Array): string {
+    const contacts = payload.at(4);
+    const irSensor0 = payload.at(5);
+    const irSensor1 = payload.at(6);
+    // const irSensor2 = payload.at(7);
+    const time = this.#readTimestamp(payload.subarray(0, 4));
+    return time + " Contacts: " + contacts + "IR Sensor 0: " + irSensor0 + "IR Sensor 1: " + irSensor1;
+  }
+
+  #readTimestamp(payload: Uint8Array): string {
+    const timestamp = payload.at(0)! * 256 ** 3 + payload.at(1)! * 256 ** 2 + payload.at(2)! * 256 + payload.at(3)!;
     const milliseconds = timestamp % 1000;
     const seconds = Math.floor((timestamp / 1000) % 60);
     const minutes = Math.floor((timestamp / 1000 / 60) % 60);
     const hours = Math.floor((timestamp / 1000 / 60 / 60));
-    const time = "Timestamp: " + [hours.toString(), minutes.toString().padStart(2, "0"), seconds.toString().padStart(2, "0")].join(":") + "." + milliseconds;
-    return [time, result, status].join("\n");
+    return "Time: " + [hours.toString(), minutes.toString().padStart(2, "0"), seconds.toString().padStart(2, "0")].join(":") + "." + milliseconds;
   }
 
-  async #sendPacket(device: number, command: number, payload?: Uint8Array, response = false) {
+  #readBatteryLevel(payload: Uint8Array): string {
+    const timestamp = this.#readTimestamp(payload.subarray(0, 4))
+    const voltage = payload.at(4)! * 256 + payload.at(5)!;
+    const percent = payload.at(6)!;
+    return timestamp + " Battery: " + voltage/1000.0 + "V, " + percent + "%";
+  }
+
+  async sendPacket(device: number, command: number, response = false, payload?: Uint8Array) {
     const buffer = new ArrayBuffer(20);
     const packet = new Uint8Array(buffer);
 
     const id = this.#getNewPacketID();
     packet.fill(0);
     packet.set([device, command, id]);
-    if (payload instanceof ArrayBuffer && payload.length > 16) {
+    if (payload instanceof Uint8Array && payload.length > 16) {
       sendMessage("Payload too long");
-    } else if (payload instanceof ArrayBuffer && payload.length <= 16) {
+    } else if (payload instanceof Uint8Array && payload.length <= 16) {
       packet.set(payload, 3);
     }
     const crc = this.#calculateCRC(packet.subarray(0, 19));
@@ -378,6 +330,35 @@ export class Robot {
     await rx.writeValueWithResponse(buffer);
   }
 
+  getBytes(value: number, byteLength: number, signed: boolean, maxValue?: number, minValue?: number): number[] {
+    const sign = signed ? 1 : 0;
+    let maximum = 2 ** (byteLength * 8 - sign) - 1;
+    let minimum = -sign * 2 ** (byteLength * 8 - sign);
+
+    if (typeof maxValue === 'number' && maxValue < maximum) {
+      maximum = maxValue;
+    }
+
+    if (typeof minValue === 'number' && minValue > minimum) {
+      minimum = minValue;
+    }
+
+    if (minimum > maximum) {
+      throw new Error("Minimum (" + minimum + ") is greater than maximum (" + maximum + ")");
+    } else if (value > maximum) {
+      throw new Error(value + " is greater than maximum permissable value: " + maximum);
+    } else if (value < minimum) {
+      throw new Error(value + " is less than minimum permissable value: " + minimum);
+    }
+
+    value = value < 0 ? value + 2 ** (byteLength * 8) : value;
+
+    const bytes = [];
+    for (let i = byteLength - 1; i >= 0; i--) {
+      bytes.push(Math.floor(value / (256 ** i)) % 256);
+    }
+    return bytes;
+  }
   // Copied calc_crc from:
   // https://github.com/iRobotEducation/irobot-edu-python-sdk/blob/78dc01026532225efef2b9e14dbd1ce646697e8c/irobot_edu_sdk/packet.py
   #calculateCRC(packet: Uint8Array): number {

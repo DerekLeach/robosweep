@@ -22,42 +22,42 @@ export default class Dashboard {
 
     const undockButton = document.createElement('button');
     undockButton.innerText = "Undock";
-    undockButton.addEventListener('click', () => this.robot.undock());
+    undockButton.addEventListener('click', () => this.robot.motors.undock());
     this.div.append(undockButton);
 
     const dockButton = document.createElement('button');
     dockButton.innerText = "Dock";
-    dockButton.addEventListener('click', () => this.robot.dock());
+    dockButton.addEventListener('click', () => this.robot.motors.dock());
     this.div.append(dockButton);
 
     const boardVersionButton = document.createElement('button');
     boardVersionButton.innerText = "boardVersion";
-    boardVersionButton.addEventListener('click', () => this.robot.getVersions("main"));
+    boardVersionButton.addEventListener('click', () => this.robot.general.getVersions("main"));
     this.div.append(boardVersionButton);
 
     const nameButton = document.createElement('button');
     nameButton.innerText = "name";
-    nameButton.addEventListener('click', () => this.robot.getName());
+    nameButton.addEventListener('click', () => this.robot.general.getName());
     this.div.append(nameButton);
 
     const getEventsButton = document.createElement('button');
     getEventsButton.innerText = "getEvents";
-    getEventsButton.addEventListener('click', () => this.robot.getEnabledEvents());
+    getEventsButton.addEventListener('click', () => this.robot.general.getEnabledEvents());
     this.div.append(getEventsButton);
 
     const getSerialNumberButton = document.createElement('button');
     getSerialNumberButton.innerText = this.toTitleCase("getSerialNumber");
-    getSerialNumberButton.addEventListener('click', () => this.robot.getSerialNumber());
+    getSerialNumberButton.addEventListener('click', () => this.robot.general.getSerialNumber());
     this.div.append(getSerialNumberButton);
 
     const getSKUButton = document.createElement('button');
     getSKUButton.innerText = this.toTitleCase("getSKU");
-    getSKUButton.addEventListener('click', () => this.robot.getSKU());
+    getSKUButton.addEventListener('click', () => this.robot.general.getSKU());
     this.div.append(getSKUButton);
 
     const enableEventsButton = document.createElement('button');
     enableEventsButton.innerText = this.toTitleCase("enableEvents");
-    enableEventsButton.addEventListener('click', () => this.robot.enableEvents([1]));
+    enableEventsButton.addEventListener('click', () => this.robot.general.enableEvents([1]));
     this.div.append(enableEventsButton);
 
     const getBatteryLevelButton = document.createElement('button');
@@ -67,13 +67,53 @@ export default class Dashboard {
 
     const driveDistanceButton = document.createElement('button');
     driveDistanceButton.innerText = this.toTitleCase("driveDistance");
-    driveDistanceButton.addEventListener('click', () => this.robot.driveDistance(1000));
+    driveDistanceButton.addEventListener('click', () => this.robot.motors.driveDistance(100));
     this.div.append(driveDistanceButton);
     
     const getPositionButton = document.createElement('button');
     getPositionButton.innerText = this.toTitleCase("getPosition");
-    getPositionButton.addEventListener('click', () => this.robot.getPosition());
+    getPositionButton.addEventListener('click', () => this.robot.motors.getPosition());
     this.div.append(getPositionButton);
+
+    const setMotorSpeed10Button = document.createElement('button');
+    setMotorSpeed10Button.innerText = this.toTitleCase("setMotorSpeed10");
+    setMotorSpeed10Button.addEventListener('click', () => this.robot.motors.setLeftAndRightMotorSpeed(-10,-10));
+    this.div.append(setMotorSpeed10Button);
+
+    const setMotorSpeed0Button = document.createElement('button');
+    setMotorSpeed0Button.innerText = this.toTitleCase("setMotorSpeed0");
+    setMotorSpeed0Button.addEventListener('click', () => this.robot.motors.setLeftAndRightMotorSpeed(0,0));
+    this.div.append(setMotorSpeed0Button);
+
+    const rotateLeftButton = document.createElement('button');
+    rotateLeftButton.innerText = this.toTitleCase("rotateLeft");
+    rotateLeftButton.addEventListener('click', () => this.robot.motors.rotateAngle(-900));
+    this.div.append(rotateLeftButton);
+
+    const rotateRightButton = document.createElement('button');
+    rotateRightButton.innerText = this.toTitleCase("rotateRight");
+    rotateRightButton.addEventListener('click', () => this.robot.motors.rotateAngle(900));
+    this.div.append(rotateRightButton);
+
+    const navigateToPositionButton = document.createElement('button');
+    navigateToPositionButton.innerText = this.toTitleCase("navigateToPosition");
+    navigateToPositionButton.addEventListener('click', () => this.robot.motors.navigateToPosition(-200, -950, 2345));
+    this.div.append(navigateToPositionButton);
+
+    const driveArcButton = document.createElement('button');
+    driveArcButton.innerText = this.toTitleCase("driveArc");
+    driveArcButton.addEventListener('click', () => this.robot.motors.driveArc(900, 300));
+    this.div.append(driveArcButton);
+
+    const sayPhraseButton = document.createElement('button');
+    sayPhraseButton.innerText = this.toTitleCase("sayPhrase");
+    sayPhraseButton.addEventListener('click', () => this.robot.sound.sayPhrase("test"));
+    this.div.append(sayPhraseButton);
+
+    const stopSoundButton = document.createElement('button');
+    stopSoundButton.innerText = this.toTitleCase("stopSound");
+    stopSoundButton.addEventListener('click', () => this.robot.sound.stopSound());
+    this.div.append(stopSoundButton);
 
     document.getElementsByTagName('main')[0].append(this.div);
   }

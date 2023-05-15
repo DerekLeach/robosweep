@@ -1,7 +1,10 @@
 {
-    "extends": "../common-tsconfig.json",
-    "compilerOptions": {
-        "rootDir": ".",
-        "lib": ["esnext", "webworker"]
-    }
+  "extends": "../common-tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "lib": [
+      "esnext",
+      "webworker"
+    ]
+  }
 }

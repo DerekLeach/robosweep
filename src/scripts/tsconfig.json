@@ -1,0 +1,19 @@
+{
+	"extends": "../common-tsconfig.json",
+	"compilerOptions": {
+		"rootDir": ".",
+		"outDir": "../../scripts",
+		"lib": [
+			"esnext",
+			"dom"
+		]
+	},
+	"references": [
+		{
+			"path": "../dedicated-workers"
+		},
+		{
+			"path": "../service-worker"
+		}
+	]
+}

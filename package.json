@@ -3,8 +3,8 @@
   "module": "index.ts",
   "type": "module",
   "scripts": {
-    "build": "tsc --build src/main",
-    "watch": "tsc --watch --project src/main/tsconfig.json"
+    "build": "tsc --build src/scripts",
+    "watch": "tsc --watch --project src/scripts/tsconfig.json"
   },
   "devDependencies": {
     "@types/web-bluetooth": "^0.0.16",

@@ -57,7 +57,7 @@ export default class Dashboard {
 
     const enableEventsButton = document.createElement('button');
     enableEventsButton.innerText = this.toTitleCase("enableEvents");
-    enableEventsButton.addEventListener('click', () => this.robot.general.enableEvents([1]));
+    enableEventsButton.addEventListener('click', () => this.robot.general.enableEvents([1, 4, 120, 123, 56, 58, 40]));
     this.div.append(enableEventsButton);
 
     const getBatteryLevelButton = document.createElement('button');
@@ -77,7 +77,7 @@ export default class Dashboard {
 
     const setMotorSpeed10Button = document.createElement('button');
     setMotorSpeed10Button.innerText = this.toTitleCase("setMotorSpeed10");
-    setMotorSpeed10Button.addEventListener('click', () => this.robot.motors.setLeftAndRightMotorSpeed(-10,-10));
+    setMotorSpeed10Button.addEventListener('click', () => this.robot.motors.setLeftAndRightMotorSpeed(20,20));
     this.div.append(setMotorSpeed10Button);
 
     const setMotorSpeed0Button = document.createElement('button');
@@ -114,6 +114,36 @@ export default class Dashboard {
     stopSoundButton.innerText = this.toTitleCase("stopSound");
     stopSoundButton.addEventListener('click', () => this.robot.sound.stopSound());
     this.div.append(stopSoundButton);
+
+    const irProximityButton = document.createElement('button');
+    irProximityButton.innerText = this.toTitleCase("irProximity");
+    irProximityButton.addEventListener('click', () => this.robot.irProximity.getIRProximityValuesWithTimestamp());
+    this.div.append(irProximityButton);
+
+    const irProximityPackedButton = document.createElement('button');
+    irProximityPackedButton.innerText = this.toTitleCase("irProximityPacked");
+    irProximityPackedButton.addEventListener('click', () => this.robot.irProximity.getPackedIRProximityValuesAndStates());
+    this.div.append(irProximityPackedButton);
+
+    const irEventThresholds = document.createElement('button');
+    irEventThresholds.innerText = this.toTitleCase("irEventThresholds");
+    irEventThresholds.addEventListener('click', () => this.robot.irProximity.getEventThresholds());
+    this.div.append(irEventThresholds);
+
+    const setIREventThresholds = document.createElement('button');
+    setIREventThresholds.innerText = this.toTitleCase("setIREventThresholds");
+    setIREventThresholds.addEventListener('click', () => this.robot.irProximity.setEventThresholds(20, [150, 150, 150, 150, 150, 150, 150]));
+    this.div.append(setIREventThresholds);
+
+    const iPv4AddressesButton = document.createElement('button');
+    iPv4AddressesButton.innerText = this.toTitleCase("IPv4Addresses");
+    iPv4AddressesButton.addEventListener('click', () => this.robot.getIPv4Addresses())
+    this.div.append(iPv4AddressesButton);
+
+    const updateButton = document.createElement('button');
+    updateButton.innerText = this.toTitleCase("update");
+    updateButton.addEventListener('click', () => this.robot.requestEasyUpdate())
+    this.div.append(updateButton);
 
     document.getElementsByTagName('main')[0].append(this.div);
   }

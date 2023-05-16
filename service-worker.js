@@ -1,6 +1,10 @@
+// @ts-check
+/// <reference no-default-lib="true"/>
+/// <reference lib="esnext" />
+/// <reference lib="webworker" />
 const CACHE_NAME = `robosweep-v2`;
 
-const serviceWorker = self as ServiceWorkerGlobalScope & typeof globalThis;
+// const serviceWorker = self as ServiceWorkerGlobalScope & typeof globalThis;
 
 async function cacheFiles() {
   const cache = await caches.open(CACHE_NAME);
@@ -23,11 +27,11 @@ async function deleteOldCaches() {
   return Promise.all(promises);
 }
 
-serviceWorker.addEventListener('install', (event) => {
+self.addEventListener('install', (event) => {
   event.waitUntil(cacheFiles());
 });
 
-serviceWorker.addEventListener('activate', (event) => {
+self.addEventListener('activate', (event) => {
   event.waitUntil(deleteOldCaches());
 })
 

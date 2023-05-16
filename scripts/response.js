@@ -2,42 +2,62 @@ import { Robot } from './robot.js';
 import sendMessage from './message.js';
 
 export default class Response {
-  robot: Robot;
+  robot;
 
-  constructor(robot: Robot) {
+  /**
+  @param {Robot} robot
+  */
+  constructor(robot) {
     this.robot = robot;
   }
 
-  getVersionsResponse(packet: Uint8Array): void {
+  /**
+  @param {Uint8Array} packet
+  @returns {void}
+  */
+  getVersionsResponse(packet) {
     this.#checkRequestStack(packet);
     let board;
     switch (packet.at(3)) {
       case 0xA5: board = "Main board: "; break;
       case 0xC6: board = "Color board: "; break;
     }
-    const firmware = "Firmware: " + String.fromCharCode(packet.at(4)!) + "." + packet.at(5) + "." + packet.at(12);
+    const firmware = "Firmware: " + String.fromCharCode(/**@type {number}*/(packet.at(4))) + "." + packet.at(5) + "." + packet.at(12);
     const hardware = "Hardware: " + packet.at(6) + "." + packet.at(7);
     const bootloader = "Bootloader: " + packet.at(8) + "." + packet.at(9);
     const protocol = "Protocol: " + packet.at(10) + "." + packet.at(11);
     sendMessage(board + firmware + "; " + hardware + "; " + bootloader + "; " + protocol + "; ");
   }
 
-  getNameResponse(packet: Uint8Array): void {
+  /**
+  @param {Uint8Array} packet
+  @returns {void}
+  */
+  getNameResponse(packet) {
     this.#checkRequestStack(packet);
     const utf8decoder = new TextDecoder();
     sendMessage("Name: " + utf8decoder.decode(packet.subarray(3, 19)));
   }
 
-  stopProject(packet: Uint8Array): void {
+  /**
+  @param {Uint8Array} packet
+  @returns {void}
+  */
+  stopProject(packet) {
     this.#updateEventID(packet);
     sendMessage("Project stopped!", 5000);
   }
 
-  getEnabledEventsResponse(packet: Uint8Array): void {
+  /**
+  @param {Uint8Array} packet
+  @returns {void}
+  */
+  getEnabledEventsResponse(packet) {
     this.#checkRequestStack(packet);
-    const devicesEnabled: number[] = [];
+    /** @type {number[]} */
+    const devicesEnabled = [];
     for (let i = 18; i >= 3; i--) {
-      for (let device of Array.from(packet.at(i)!.toString(2).padStart(8, '0')).reverse()) {
+      for (let device of Array.from(/**@type {number}*/(packet.at(i)).toString(2).padStart(8, '0')).reverse()) {
         devicesEnabled.push(Number(device));
       }
     }
@@ -45,49 +65,85 @@ export default class Response {
     sendMessage("Check log");
   }
 
-  getSerialNumberResponse(packet: Uint8Array): void {
+  /**
+  @param {Uint8Array} packet
+  @returns {void}
+  */
+  getSerialNumberResponse(packet) {
     this.#checkRequestStack(packet);
     const utf8decoder = new TextDecoder();
     sendMessage("Serial number: " + utf8decoder.decode(packet.subarray(3, 19)));
   }
 
-  getSKU(packet: Uint8Array): void {
+  /**
+  @param {Uint8Array} packet
+  @returns {void}
+  */
+  getSKU(packet) {
     this.#checkRequestStack(packet);
     const utf8decoder = new TextDecoder();
     sendMessage("SKU: " + utf8decoder.decode(packet.subarray(3, 19)));
   }
 
-  driveDistanceFinishedResponse(packet: Uint8Array): void {
+  /**
+  @param {Uint8Array} packet
+  @returns {void}
+  */
+  driveDistanceFinishedResponse(packet) {
     this.#checkRequestStack(packet);
     this.#positionStatus(packet);
   }
 
-  rotateAngleFinishedResponse(packet: Uint8Array): void {
+  /**
+  @param {Uint8Array} packet
+  @returns {void}
+  */
+  rotateAngleFinishedResponse(packet) {
     this.#checkRequestStack(packet);
     this.#positionStatus(packet);
   }
 
-  getPositionResponse(packet: Uint8Array): void {
+  /**
+  @param {Uint8Array} packet
+  @returns {void}
+  */
+  getPositionResponse(packet) {
     this.#checkRequestStack(packet);
     this.#positionStatus(packet);
   }
 
-  navigateToPositionFinishedResponse(packet: Uint8Array): void {
+  /**
+  @param {Uint8Array} packet
+  @returns {void}
+  */
+  navigateToPositionFinishedResponse(packet) {
     this.#checkRequestStack(packet);
     this.#positionStatus(packet);
   }
 
-  dock(packet: Uint8Array): void {
+  /**
+  @param {Uint8Array} packet
+  @returns {void}
+  */
+  dock(packet) {
     this.#checkRequestStack(packet);
     sendMessage(this.#dockStatus(packet));
   }
 
-  undock(packet: Uint8Array): void {
+  /**
+  @param {Uint8Array} packet
+  @returns {void}
+  */
+  undock(packet) {
     this.#checkRequestStack(packet);
     sendMessage(this.#dockStatus(packet));
   }
 
-  motorStallEvent(packet: Uint8Array): void {
+  /**
+  @param {Uint8Array} packet
+  @returns {void}
+  */
+  motorStallEvent(packet) {
     this.#updateEventID(packet);
     const time = this.#readTimestamp(packet)
     let motor;
@@ -108,57 +164,93 @@ export default class Response {
     sendMessage(time + "; " + cause + " in " + motor + " motor!");
   }
 
-  driveArcFinishedResponse(packet: Uint8Array): void {
+  /**
+  @param {Uint8Array} packet
+  @returns {void}
+  */
+  driveArcFinishedResponse(packet) {
     this.#checkRequestStack(packet);
     this.#positionStatus(packet);
   }
 
-  playNoteFinishedResponse(packet: Uint8Array): void {
+  /**
+  @param {Uint8Array} packet
+  @returns {void}
+  */
+  playNoteFinishedResponse(packet) {
     this.#checkRequestStack(packet);
     sendMessage("Finished playing note", 3000);
   }
 
-  sayPhraseFinishedResponse(packet: Uint8Array): void {
+  /**
+  @param {Uint8Array} packet
+  @returns {void}
+  */
+  sayPhraseFinishedResponse(packet) {
     this.#checkRequestStack(packet);
     sendMessage("Finished saying phrase", 3000);
   }
 
-  playSweepFinishedResponse(packet: Uint8Array): void {
+  /**
+  @param {Uint8Array} packet
+  @returns {void}
+  */
+  playSweepFinishedResponse(packet) {
     this.#checkRequestStack(packet);
     sendMessage("Finished playing sweep", 3000);
   }
 
-  IRProximityEvent(packet: Uint8Array): void {
+  /**
+  @param {Uint8Array} packet
+  @returns {void}
+  */
+  IRProximityEvent(packet) {
     this.#updateEventID(packet);
     sendMessage(this.#packedIRProximity(packet), 3000);
   }
 
-  getIRProximityValuesWithTimestampResponse(packet: Uint8Array): void {
+  /**
+  @param {Uint8Array} packet
+  @returns {void}
+  */
+  getIRProximityValuesWithTimestampResponse(packet) {
     this.#checkRequestStack(packet);
     const time = this.#readTimestamp(packet)
     const sensors = [];
     for (let i = 7; i < 18; i += 2) {
-      sensors.push(packet.at(i)! * 256 + packet.at(i + 1)!);
+      sensors.push(/**@type {number}*/(packet.at(i)) * 256 + /**@type {number}*/(packet.at(i + 1)));
     }
     sendMessage(time + sensors.toString());
   }
 
-  getPackedIRProximityValuesAndStatesResponse(packet: Uint8Array): void {
+  /**
+  @param {Uint8Array} packet
+  @returns {void}
+  */
+  getPackedIRProximityValuesAndStatesResponse(packet) {
     this.#checkRequestStack(packet);
     sendMessage(this.#packedIRProximity(packet));
   }
 
-  getEventThresholdsResponse(packet: Uint8Array): void {
+  /**
+  @param {Uint8Array} packet
+  @returns {void}
+  */
+  getEventThresholdsResponse(packet) {
     this.#checkRequestStack(packet);
-    const hysteresis = packet.at(3)! * 256 + packet.at(4)!;
+    const hysteresis = /**@type {number}*/(packet.at(3)) * 256 + /**@type {number}*/(packet.at(4));
     const thresholds = [];
     for (let i = 5; i < 18; i += 2) {
-      thresholds.push(packet.at(i)! * 256 + packet.at(i + 1)!);
+      thresholds.push(/**@type {number}*/(packet.at(i)) * 256 + /**@type {number}*/(packet.at(i + 1)));
     }
     sendMessage("Hysteresis: " + hysteresis + " Thresholds: " + thresholds.toString());
   }
 
-  bumperEvent(packet: Uint8Array): void {
+  /**
+  @param {Uint8Array} packet
+  @returns {void}
+  */
+  bumperEvent(packet) {
     this.#updateEventID(packet);
     const time = this.#readTimestamp(packet)
     const state = packet.at(7);
@@ -172,32 +264,48 @@ export default class Response {
     sendMessage(time + "; Bumper: " + bumper, 3000);
   }
 
-  batteryLevelEvent(packet: Uint8Array): void {
+  /**
+  @param {Uint8Array} packet
+  @returns {void}
+  */
+  batteryLevelEvent(packet) {
     this.#updateEventID(packet);
     sendMessage(this.#getBatteryLevel(packet), 3000);
   }
 
-  getBatteryLevelResponse(packet: Uint8Array): void {
+  /**
+  @param {Uint8Array} packet
+  @returns {void}
+  */
+  getBatteryLevelResponse(packet) {
     this.#checkRequestStack(packet);
     sendMessage(this.#getBatteryLevel(packet), 3000);
   }
 
-  getAccelerometerResponse(packet: Uint8Array): void {
+  /**
+  @param {Uint8Array} packet
+  @returns {void}
+  */
+  getAccelerometerResponse(packet) {
     this.#checkRequestStack(packet);
     const time = this.#readTimestamp(packet)
-    let x = packet.at(7)! * 256 + packet.at(8)!;
-    let y = packet.at(9)! * 256 + packet.at(10)!;
-    let z = packet.at(11)! * 256 + packet.at(12)!;
+    let x = /**@type {number}*/(packet.at(7)) * 256 + /**@type {number}*/(packet.at(8));
+    let y = /**@type {number}*/(packet.at(9)) * 256 + /**@type {number}*/(packet.at(10));
+    let z = /**@type {number}*/(packet.at(11)) * 256 + /**@type {number}*/(packet.at(12));
     x = x >= 2 ** 15 ? x - 2 ** 16 : x;
     y = y >= 2 ** 15 ? y - 2 ** 16 : y;
     z = z >= 2 ** 15 ? z - 2 ** 16 : z;
     sendMessage(time + "; Acceleration: x=" + x + "mg, y=" + y + "mg, z=" + z + "mg", 5000);
   }
 
-  touchSensorEvent(packet: Uint8Array): void {
+  /**
+  @param {Uint8Array} packet
+  @returns {void}
+  */
+  touchSensorEvent(packet) {
     this.#updateEventID(packet);
     const time = this.#readTimestamp(packet)
-    const state = packet.at(7)!.toString(2).padStart(8, '0').slice(0, 2);
+    const state = /**@type {number}*/(packet.at(7)).toString(2).padStart(8, '0').slice(0, 2);
     let buttons;
     switch (state) {
       case "00": buttons = " No Button";
@@ -208,36 +316,60 @@ export default class Response {
     sendMessage(time + buttons, 3000);
   }
 
-  dockingSensorEvent(packet: Uint8Array): void {
+  /**
+  @param {Uint8Array} packet
+  @returns {void}
+  */
+  dockingSensorEvent(packet) {
     this.#updateEventID(packet);
     sendMessage(this.#dockingSensor(packet), 3000);
   }
 
-  getDockingValuesResponse(packet: Uint8Array): void {
+  /**
+  @param {Uint8Array} packet
+  @returns {void}
+  */
+  getDockingValuesResponse(packet) {
     this.#checkRequestStack(packet);
     sendMessage(this.#dockingSensor(packet), 5000);
   }
 
-  cliffEvent(packet: Uint8Array): void {
+  /**
+  @param {Uint8Array} packet
+  @returns {void}
+  */
+  cliffEvent(packet) {
     this.#updateEventID(packet);
     const time = this.#readTimestamp(packet.subarray(3, 7));
-    const cliff = packet.at(7)!.toString(2).padStart(8, '0');
-    const sensor = packet.at(8)! * 256 + packet.at(9)!;
-    const threshold = packet.at(10)! * 256 + packet.at(11)!;
+    const cliff = /**@type {number}*/(packet.at(7)).toString(2).padStart(8, '0');
+    const sensor = /**@type {number}*/(packet.at(8)) * 256 + /**@type {number}*/(packet.at(9));
+    const threshold = /**@type {number}*/(packet.at(10)) * 256 + /**@type {number}*/(packet.at(11));
     sendMessage(time + " Cliff: " + cliff + " Sensor: " + sensor + "mV, Threshold: " + threshold + "mV", 3000);
   }
 
-  IPv4ChangeEvent(packet: Uint8Array): void {
+  /**
+  @param {Uint8Array} packet
+  @returns {void}
+  */
+  IPv4ChangeEvent(packet) {
     this.#updateEventID(packet);
     sendMessage(this.#IPv4Addresses(packet), 5000);
   }
 
-  getIPv4AddressesResponse(packet: Uint8Array): void {
+  /**
+  @param {Uint8Array} packet
+  @returns {void}
+  */
+  getIPv4AddressesResponse(packet) {
     this.#checkRequestStack(packet);
     sendMessage(this.#IPv4Addresses(packet), 5000);
   }
 
-  easyUpdateEvent(packet: Uint8Array): void {
+  /**
+  @param {Uint8Array} packet
+  @returns {void}
+  */
+  easyUpdateEvent(packet) {
     this.#updateEventID(packet);
     const time = this.#readTimestamp(packet);
     const utf8decoder = new TextDecoder();
@@ -246,16 +378,20 @@ export default class Response {
       case "d": stage = "downloading"; break;
       case "i": stage = "installing"; break;
     }
-    const percent = packet.at(8)!;
+    const percent = /**@type {number}*/(packet.at(8));
     sendMessage(time + " Update: " + stage + " " + percent + "%", 5000);
   }
 
-  #positionStatus(packet: Uint8Array): void {
-    let x = packet.at(7)! * 256 ** 3 + packet.at(8)! * 256 ** 2 + packet.at(9)! * 256 + packet.at(10)!;
-    let y = packet.at(11)! * 256 ** 3 + packet.at(12)! * 256 ** 2 + packet.at(13)! * 256 + packet.at(14)!;
+  /**
+  @param {Uint8Array} packet
+  @returns {void}
+  */
+  #positionStatus(packet) {
+    let x = /**@type {number}*/(packet.at(7)) * 256 ** 3 + /**@type {number}*/(packet.at(8)) * 256 ** 2 + /**@type {number}*/(packet.at(9)) * 256 + /**@type {number}*/(packet.at(10));
+    let y = /**@type {number}*/(packet.at(11)) * 256 ** 3 + /**@type {number}*/(packet.at(12)) * 256 ** 2 + /**@type {number}*/(packet.at(13)) * 256 + /**@type {number}*/(packet.at(14));
     x = x > 2 ** 31 ? x - 2 ** 32 : x;
     y = y > 2 ** 31 ? y - 2 ** 32 : y;
-    const heading = (packet.at(15)! * 256 + packet.at(16)!) / 10.0;
+    const heading = (/**@type {number}*/(packet.at(15)) * 256 + /**@type {number}*/(packet.at(16))) / 10.0;
     const time = this.#readTimestamp(packet);
     sendMessage(time, 3000);
     sendMessage("x: " + x / 10.0 + "cm", 3000);
@@ -263,7 +399,11 @@ export default class Response {
     sendMessage("heading: " + heading.toString() + "°", 3000);
   }
 
-  #dockStatus(packet: Uint8Array): string {
+  /**
+  @param {Uint8Array} packet
+  @returns {string}
+  */
+  #dockStatus(packet) {
     const time = this.#readTimestamp(packet);
     let status = "Unknown";
     switch (packet.at(7)) {
@@ -271,53 +411,68 @@ export default class Response {
       case 1: status = "Aborted"; break;
       case 4: status = "Canceled"; break;
     }
-    const result = packet.at(8)! === 0 ? "Not docked" : "Docked";
+    const result = /**@type {number}*/(packet.at(8)) === 0 ? "Not docked" : "Docked";
     return [time, result, status].join("\n");
   }
 
-  #packedIRProximity(packet: Uint8Array): string {
+  /**
+  @param {Uint8Array} packet
+  @returns {string}
+  */
+  #packedIRProximity(packet) {
     const time = this.#readTimestamp(packet)
-    const state = packet.at(7)!.toString(2).padStart(8, '0');
-    const sensors: number[] = new Array(7);
+    const state = /**@type {number}*/(packet.at(7)).toString(2).padStart(8, '0');
+
+    /** @type {number[]} */
+    const sensors = new Array(7);
+
     sensors[0] = parseInt(
-      packet.at(8)!.toString(2).padStart(8, '0') + packet.at(15)!.toString(2).padStart(8, '0').slice(0, 4),
+      /**@type {number}*/(packet.at(8)).toString(2).padStart(8, '0') + /**@type {number}*/(packet.at(15)).toString(2).padStart(8, '0').slice(0, 4),
       2
     );
     sensors[1] = parseInt(
-      packet.at(9)!.toString(2).padStart(8, '0') + packet.at(15)!.toString(2).padStart(8, '0').slice(4, 8),
+      /**@type {number}*/(packet.at(9)).toString(2).padStart(8, '0') + /**@type {number}*/(packet.at(15)).toString(2).padStart(8, '0').slice(4, 8),
       2
     );
     sensors[2] = parseInt(
-      packet.at(10)!.toString(2).padStart(8, '0') + packet.at(16)!.toString(2).padStart(8, '0').slice(0, 4),
+      /**@type {number}*/(packet.at(10)).toString(2).padStart(8, '0') + /**@type {number}*/(packet.at(16)).toString(2).padStart(8, '0').slice(0, 4),
       2
     );
     sensors[3] = parseInt(
-      packet.at(11)!.toString(2).padStart(8, '0') + packet.at(16)!.toString(2).padStart(8, '0').slice(4, 8),
+      /**@type {number}*/(packet.at(11)).toString(2).padStart(8, '0') + /**@type {number}*/(packet.at(16)).toString(2).padStart(8, '0').slice(4, 8),
       2
     );
     sensors[4] = parseInt(
-      packet.at(12)!.toString(2).padStart(8, '0') + packet.at(17)!.toString(2).padStart(8, '0').slice(0, 4),
+      /**@type {number}*/(packet.at(12)).toString(2).padStart(8, '0') + /**@type {number}*/(packet.at(17)).toString(2).padStart(8, '0').slice(0, 4),
       2
     );
     sensors[5] = parseInt(
-      packet.at(13)!.toString(2).padStart(8, '0') + packet.at(17)!.toString(2).padStart(8, '0').slice(4, 8),
+      /**@type {number}*/(packet.at(13)).toString(2).padStart(8, '0') + /**@type {number}*/(packet.at(17)).toString(2).padStart(8, '0').slice(4, 8),
       2
     );
     sensors[6] = parseInt(
-      packet.at(14)!.toString(2).padStart(8, '0') + packet.at(18)!.toString(2).padStart(8, '0').slice(0, 4),
+      /**@type {number}*/(packet.at(14)).toString(2).padStart(8, '0') + /**@type {number}*/(packet.at(18)).toString(2).padStart(8, '0').slice(0, 4),
       2
     );
     return time + " triggered: " + state + " " + sensors.toString();
   }
 
-  #getBatteryLevel(packet: Uint8Array): string {
+  /**
+  @param {Uint8Array} packet
+  @returns {string}
+  */
+  #getBatteryLevel(packet) {
     const timestamp = this.#readTimestamp(packet)
-    const voltage = packet.at(7)! * 256 + packet.at(8)!;
-    const percent = packet.at(9)!;
+    const voltage = /**@type {number}*/(packet.at(7)) * 256 + /**@type {number}*/(packet.at(8));
+    const percent = /**@type {number}*/(packet.at(9));
     return timestamp + " Battery: " + voltage / 1000.0 + "V, " + percent + "%";
   }
 
-  #dockingSensor(packet: Uint8Array): string {
+  /**
+  @param {Uint8Array} packet
+  @returns {string}
+  */
+  #dockingSensor(packet) {
     const time = this.#readTimestamp(packet);
     const contacts = packet.at(7);
     const irSensor0 = packet.at(8);
@@ -326,15 +481,23 @@ export default class Response {
     return time + " Contacts: " + contacts + "IR Sensor 0: " + irSensor0 + "IR Sensor 1: " + irSensor1;
   }
 
-  #IPv4Addresses(packet: Uint8Array): string {
-    const wlan0 = packet.at(3)! + "." + packet.at(4)! + "." + packet.at(5)! + "." + packet.at(6)!;
-    const wlan1 = packet.at(7)! + "." + packet.at(8)! + "." + packet.at(9)! + "." + packet.at(10)!;
-    const usb0 = packet.at(11)! + "." + packet.at(12)! + "." + packet.at(13)! + "." + packet.at(14)!;
+  /**
+  @param {Uint8Array} packet
+  @returns {string}
+  */
+  #IPv4Addresses(packet) {
+    const wlan0 = /**@type {number}*/(packet.at(3)) + "." + /**@type {number}*/(packet.at(4)) + "." + /**@type {number}*/(packet.at(5)) + "." + /**@type {number}*/(packet.at(6));
+    const wlan1 = /**@type {number}*/(packet.at(7)) + "." + /**@type {number}*/(packet.at(8)) + "." + /**@type {number}*/(packet.at(9)) + "." + /**@type {number}*/(packet.at(10));
+    const usb0 = /**@type {number}*/(packet.at(11)) + "." + /**@type {number}*/(packet.at(12)) + "." + /**@type {number}*/(packet.at(13)) + "." + /**@type {number}*/(packet.at(14));
     return "wlan0: " + wlan0 + " wlan1: " + wlan1 + " usb0: " + usb0;
   }
 
-  #updateEventID(packet: Uint8Array) {
-    const eventID = packet.at(2)!;
+  /**
+  @param {Uint8Array} packet
+  @returns {void}
+  */
+  #updateEventID(packet) {
+    const eventID = /**@type {number}*/(packet.at(2));
     const oldEventID = Number(sessionStorage.getItem(this.robot.eventID))
     let lostPackets = eventID - (oldEventID + 1);
     lostPackets = lostPackets < 0 ? lostPackets + 256 : lostPackets;
@@ -344,14 +507,19 @@ export default class Response {
     sessionStorage.setItem(this.robot.eventID, eventID.toString());
   }
 
-  #checkRequestStack(packet: Uint8Array): void {
-    const packetID = [packet.at(0)!, packet.at(1)!, packet.at(2)!];
+  /**
+  @param {Uint8Array} packet
+  @returns {void}
+  */
+  #checkRequestStack(packet) {
+    const packetID = [/**@type {number}*/(packet.at(0)), /**@type {number}*/(packet.at(1)), /**@type {number}*/(packet.at(2))];
     if (this.robot.requestStack.length === 0) {
       sendMessage("No responses expected!", 3000);
       return;
     }
     let awaitingRequest;
-    const tempStack: [number, number, number][] = [];
+    /** @type {[number, number, number][]} */
+    const tempStack = [];
     while (awaitingRequest = this.robot.requestStack.pop()) {
       if (awaitingRequest.toString() === packetID.toString()) {
         sendMessage("Received response", 500);
@@ -368,8 +536,12 @@ export default class Response {
     }
   }
 
-  #readTimestamp(packet: Uint8Array): string {
-    const timestamp = packet.at(3)! * 256 ** 3 + packet.at(4)! * 256 ** 2 + packet.at(5)! * 256 + packet.at(6)!;
+  /**
+  @param {Uint8Array} packet
+  @returns {string}
+  */
+  #readTimestamp(packet) {
+    const timestamp = /**@type {number}*/(packet.at(3)) * 256 ** 3 + /**@type {number}*/(packet.at(4)) * 256 ** 2 + /**@type {number}*/(packet.at(5)) * 256 + /**@type {number}*/(packet.at(6));
     const milliseconds = timestamp % 1000;
     const seconds = Math.floor((timestamp / 1000) % 60);
     const minutes = Math.floor((timestamp / 1000 / 60) % 60);

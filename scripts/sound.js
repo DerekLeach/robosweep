@@ -1,14 +1,22 @@
 import { Robot } from './robot.js';
 
 export default class Sound {
-  robot: Robot;
+  robot;
   device = 5;
 
-  constructor(robot: Robot) {
+  /**
+  @param {Robot} robot
+  */
+  constructor(robot) {
     this.robot = robot;
   }
 
-  async playNote(frequencyHertz: number, durationMilliSeconds: number): Promise<void> {
+  /**
+  @param {number} frequencyHertz
+  @param {number} durationMilliSeconds
+  @returns {Promise<void>}
+  */
+  async playNote(frequencyHertz, durationMilliSeconds) {
     const payload = new Uint8Array(6);
 
     const frequency = this.robot.getBytes(frequencyHertz, 4, false);
@@ -18,27 +26,46 @@ export default class Sound {
     await this.robot.sendPacket(this.device, 0, true, payload);
   }
 
-  async stopSound(): Promise<void> {
+  /**
+  @returns {Promise<void>}
+  */
+  async stopSound() {
     await this.robot.sendPacket(this.device, 1);
   }
 
-  async sayPhrase(phrase: string): Promise<void> {
+  /**
+  @param {string} phrase
+  @returns {Promise<void>}
+  */
+  async sayPhrase(phrase) {
     const encoder = new TextEncoder();
     const payload = encoder.encode(phrase).subarray(0, 16);
     await this.robot.sendPacket(this.device, 4, true, payload);
   }
 
+  /**
+  @param {number} startFrequencyMilliHertz
+  @param {number} endFrequencyMilliHertz
+  @param {number} durationMilliSeconds
+  @param {number} attackMilliSeconds
+  @param {number} releaseMilliSeconds
+  @param {number} volume
+  @param {"disabled" | "volume" | "pulse width" | "frequency"} modulationType
+  @param {number} modulationRateHertz
+  @param {boolean} appendSweep
+  @returns {Promise<void>}
+  */
   async playSweep(
-    startFrequencyMilliHertz: number,
-    endFrequencyMilliHertz: number,
-    durationMilliSeconds: number,
-    attackMilliSeconds: number,
-    releaseMilliSeconds: number,
-    volume: number,
-    modulationType: "disabled" | "volume" | "pulse width" | "frequency",
-    modulationRateHertz: number,
-    appendSweep: boolean
-  ): Promise<void> {
+    startFrequencyMilliHertz,
+    endFrequencyMilliHertz,
+    durationMilliSeconds,
+    attackMilliSeconds,
+    releaseMilliSeconds,
+    volume,
+    modulationType,
+    modulationRateHertz,
+    appendSweep
+  ) {
     const payload = new Uint8Array(16);
     const startFrequency = this.robot.getBytes(startFrequencyMilliHertz, 4, false);
     const endFrequency = this.robot.getBytes(endFrequencyMilliHertz, 4, false);

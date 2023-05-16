@@ -1,3 +1,6 @@
+/**
+@returns {Promise<void>}
+*/
 async function registerServiceWorker() {
   if ("serviceWorker" in navigator) {
     try {

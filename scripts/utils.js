@@ -1,7 +1,11 @@
 import sendMessage from './message';
 import { robotServices } from './robot';
 
-export async function scanServices(robot: BluetoothRemoteGATTServer): Promise<void> {
+/**
+@param {BluetoothRemoteGATTServer} robot
+@returns {Promise<void>}
+*/
+export async function scanServices(robot) {
   try {
     sendMessage("Scanning for services", 3000);
     const scannedServices = await robot.getPrimaryServices();

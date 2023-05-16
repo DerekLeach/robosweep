@@ -2,10 +2,14 @@ import { Robot, robotServices } from './robot.js';
 import sendMessage from './message.js';
 
 export default class Dashboard {
-  robot: Robot;
-  div: HTMLDivElement;
+  robot;
+  div;
 
-  constructor(robot: Robot, forgetButton: HTMLButtonElement) {
+  /**
+  @param {Robot} robot
+  @param {HTMLButtonElement} forgetButton
+  */
+  constructor(robot, forgetButton) {
     this.robot = robot;
     this.div = document.createElement('div');
     this.display();
@@ -14,6 +18,9 @@ export default class Dashboard {
     // this.robot.server.device.addEventListener("gattserverdisconnected", this.onDisconnected);
   }
 
+  /**
+  @returns {void}
+  */
   display() {
     const infoButton = document.createElement('button');
     infoButton.innerText = "Info";
@@ -152,7 +159,11 @@ export default class Dashboard {
     this.div.remove()
   }
   
-  async getRobotInfo(robot: BluetoothRemoteGATTServer) {
+  /**
+  @param {BluetoothRemoteGATTServer} robot
+  @returns {Promise<void>}
+  */
+  async getRobotInfo(robot) {
     try {
       sendMessage("Getting robot information", 4000);
       const services = await robot.getPrimaryServices(robotServices.information.uuid);
@@ -210,7 +221,11 @@ export default class Dashboard {
     }
   }
 
-  getStateInformation(data: DataView): string {
+  /**
+  @param {DataView} data
+  @returns {string}
+  */
+  getStateInformation(data) {
     const length = data.byteLength;
     const sensors = data.getUint8(0);
     const bits = (sensors >>> 0).toString(2);
@@ -219,13 +234,21 @@ export default class Dashboard {
     return "Sensor bits: " + bits.toString() + " Battery: " + battery.toString() + " Length: " + length.toString();
   }
 
-  parseValue(value: DataView): string {
+  /**
+  @param {DataView} value
+  @returns {string}
+  */
+  parseValue(value) {
     const utf8decoder = new TextDecoder();
     const something = new Uint8Array(value.buffer)
     return utf8decoder.decode(something);
   }
 
-  toTitleCase(text: string): string {
+  /**
+  @param {string} text
+  @returns {string}
+  */
+  toTitleCase(text) {
     const textWithSpaces = text.replace(/([A-Z])/g, " $1");
     return textWithSpaces.charAt(0).toUpperCase() + textWithSpaces.slice(1);
   }

@@ -29,7 +29,12 @@ export async function displayBluetooth() {
   document.getElementsByTagName('header')[0].prepend(table);
 }
 
-export async function scanForRobots(button: HTMLButtonElement, table: HTMLTableSectionElement): Promise<void> {
+/**
+* @param {HTMLButtonElement} button
+* @param {HTMLTableSectionElement} table
+* @returns {Promise<void>}
+*/
+export async function scanForRobots(button, table) {
   button.disabled = true;
   button.innerText = "Scanning";
   try {
@@ -59,11 +64,13 @@ export async function scanForRobots(button: HTMLButtonElement, table: HTMLTableS
   }
 }
 
-async function connectRobot(
-  gattServer: BluetoothRemoteGATTServer,
-  connectButton: HTMLButtonElement,
-  forgetButton: HTMLButtonElement
-): Promise<void> {
+/**
+@param {BluetoothRemoteGATTServer} gattServer
+@param {HTMLButtonElement} connectButton
+@param {HTMLButtonElement} forgetButton
+@returns {Promise<void>}
+*/
+async function connectRobot( gattServer, connectButton, forgetButton) {
   sendMessage("Connecting", 3000);
   try {
     gattServer = await gattServer.connect()
@@ -83,10 +90,12 @@ async function connectRobot(
   }
 }
 
-function addToKnownDevices(
-  gattServer: BluetoothRemoteGATTServer,
-  table: HTMLTableSectionElement,
-): HTMLButtonElement[] {
+/**
+@param {BluetoothRemoteGATTServer} gattServer
+@param {HTMLTableSectionElement} table
+@returns {HTMLButtonElement[]}
+*/
+function addToKnownDevices(gattServer, table) {
   const row = table.insertRow(0);
   row.insertCell().innerText = gattServer.device.name ? gattServer.device.name : gattServer.device.id;
   row.id = gattServer.device.id;
@@ -103,11 +112,13 @@ function addToKnownDevices(
   return [connectButton, forgetButton];
 }
 
-async function connectToGATTServer(
-  gattServer: BluetoothRemoteGATTServer,
-  connectButton: HTMLButtonElement,
-  forgetButton: HTMLButtonElement,
-) {
+/**
+@param {BluetoothRemoteGATTServer} gattServer
+@param {HTMLButtonElement} connectButton
+@param {HTMLButtonElement} forgetButton
+@returns {Promise<void>}
+*/
+async function connectToGATTServer(gattServer, connectButton, forgetButton) {
   connectButton.disabled = true;
   if (gattServer.connected) {
     sendMessage("Disconnecting", 3000);
@@ -128,11 +139,13 @@ async function connectToGATTServer(
   connectButton.disabled = false;
 }
 
-async function forgetDevice(
-  button: HTMLButtonElement,
-  row: HTMLTableRowElement,
-  gattServer: BluetoothRemoteGATTServer
-) {
+/**
+@param {HTMLButtonElement} button
+@param {HTMLTableRowElement} row
+@param {BluetoothRemoteGATTServer} gattServer
+@returns {Promise<void>}
+*/
+async function forgetDevice(button, row, gattServer) {
   button.disabled = true;
   if (gattServer.connected) {
     gattServer.disconnect();
@@ -142,7 +155,11 @@ async function forgetDevice(
   setTimeout(() => row.remove(), 600);
 }
 
-function onDisconnected(button: HTMLButtonElement, dashboard: Dashboard) {
+/**
+@param {HTMLButtonElement} button
+@param {Dashboard} dashboard
+*/
+function onDisconnected(button, dashboard) {
   button.innerText = "Connect";
   dashboard.remove();
   sendMessage("Robot disconnected", 3000);

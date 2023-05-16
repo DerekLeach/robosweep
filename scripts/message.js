@@ -1,4 +1,10 @@
-export default function sendMessage(message: string, delay?: number): void {
+
+/**
+@param {string} message
+@param {number} [delay]
+@returns {void}
+*/
+export default function sendMessage(message, delay) {
   const div = document.createElement('div');
   const messageClassName = "alert";
   div.className = messageClassName;
@@ -19,7 +25,7 @@ export default function sendMessage(message: string, delay?: number): void {
   });
 
   document.getElementsByTagName('aside')[0].append(div);
-  
+
   if (typeof delay !== 'undefined') {
     setTimeout(() => div.remove(), delay);
   }

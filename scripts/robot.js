@@ -30,11 +30,12 @@ export const robotServices = {
 }
 
 export class Robot {
-  server: BluetoothRemoteGATTServer;
+  server;
 
   packetID = 0;
-  eventID: string;
-  requestStack: [number, number, number][] = [];
+  eventID;
+  /**@type {[number, number, number][]}*/
+  requestStack = [];
 
   general = new General(this);
   motors = new Motors(this);
@@ -42,7 +43,10 @@ export class Robot {
   irProximity = new IRProximity(this);
   response = new Response(this);
 
-  constructor(server: BluetoothRemoteGATTServer) {
+  /**
+  @param {BluetoothRemoteGATTServer} server
+  */
+  constructor(server) {
     this.server = server;
     this.eventID = "Event ID for: " + server.device.id;
     if (!sessionStorage.getItem(this.eventID)) {
@@ -57,13 +61,14 @@ export class Robot {
     tx.startNotifications();
   }
 
-  receiveUARTPackets(characteristic: BluetoothRemoteGATTCharacteristic) {
+  /** @param {BluetoothRemoteGATTCharacteristic} characteristic */
+  receiveUARTPackets(characteristic) {
     if (characteristic.value instanceof DataView) {
       const packet = new Uint8Array(characteristic.value.buffer);
       if (this.#calculateCRC(packet) === 0 && packet.length === 20) {
-        const device = packet.at(0)!;
-        const command = packet.at(1)!;
-        const packetID = packet.at(2)!;
+        const device = packet.at(0);
+        const command = packet.at(1);
+        const packetID = packet.at(2);
         const payload = packet.subarray(3, 19);
         const utf8decoder = new TextDecoder();
         switch (device) {
@@ -154,12 +159,14 @@ export class Robot {
     }
   }
 
-  async setLEDAnimation(
-    state: "off" | "on" | "blink" | "spin",
-    red: number,
-    green: number,
-    blue: number
-  ): Promise<void> {
+  /**
+  @param {"off" | "on" | "blink" | "spin"} state
+  @param {number} red
+  @param {number} green
+  @param {number} blue
+  @returns {Promise<void>}
+  */
+  async setLEDAnimation(state, red, green, blue) {
     const payload = new Uint8Array(4);
 
     let stateByte;
@@ -174,23 +181,38 @@ export class Robot {
     await this.sendPacket(3, 2, false, payload);
   }
 
-  async getBatteryLevel(): Promise<void> {
+  /**
+  @returns {Promise<void>}
+  */
+  async getBatteryLevel() {
     await this.sendPacket(14, 1, true);
   }
 
-  async getDockingValues(): Promise<void> {
+  /**
+  @returns {Promise<void>}
+  */
+  async getDockingValues() {
     await this.sendPacket(19, 1, true);
   }
 
-  async getIPv4Addresses(): Promise<void> {
+  /**
+  @returns {Promise<void>}
+  */
+  async getIPv4Addresses() {
     await this.sendPacket(100, 1, true);
   }
 
-  async requestEasyUpdate(): Promise<void> {
+  /**
+  @returns {Promise<void>}
+  */
+  async requestEasyUpdate() {
     await this.sendPacket(100, 2);
   }
 
-  #getNewPacketID(): number {
+  /**
+  @returns {number}
+  */
+  #getNewPacketID() {
     if (this.packetID >= 255) {
       this.packetID = 0;
       return this.packetID;
@@ -199,7 +221,13 @@ export class Robot {
     }
   }
 
-  async sendPacket(device: number, command: number, response = false, payload?: Uint8Array) {
+  /**
+  @param {number} device
+  @param {number} command
+  @param {boolean} response
+  @param {Uint8Array} [payload]
+  */
+  async sendPacket(device, command, response = false, payload) {
     const buffer = new ArrayBuffer(20);
     const packet = new Uint8Array(buffer);
 
@@ -223,7 +251,15 @@ export class Robot {
     await rx.writeValueWithResponse(buffer);
   }
 
-  getBytes(value: number, byteLength: number, signed: boolean, maxValue?: number, minValue?: number): number[] {
+  /**
+  @param {number} value
+  @param {number} byteLength
+  @param {boolean} signed
+  @param {number} [maxValue]
+  @param {number} [minValue]
+  @returns {number[]}
+  */
+  getBytes(value, byteLength, signed, maxValue, minValue) {
     const sign = signed ? 1 : 0;
     let maximum = 2 ** (byteLength * 8 - sign) - 1;
     let minimum = -sign * 2 ** (byteLength * 8 - sign);
@@ -252,9 +288,14 @@ export class Robot {
     }
     return bytes;
   }
+
   // Copied calc_crc from:
   // https://github.com/iRobotEducation/irobot-edu-python-sdk/blob/78dc01026532225efef2b9e14dbd1ce646697e8c/irobot_edu_sdk/packet.py
-  #calculateCRC(packet: Uint8Array): number {
+  /**
+  @param {Uint8Array} packet
+  @returns {number}
+  */
+  #calculateCRC(packet) {
     let crc = 0;
     for (const c of packet.values()) {
       for (let i = 0; i < 8; i++) {

@@ -3,7 +3,7 @@
   "name": "RoboSweep App",
   "short_name": "RoboSweep",
   "description": "Control iRobot Create3",
-  "start_url": "/",
+  "start_url": "/robosweep/",
   "background_color": "#2f3d58",
   "theme_color": "#2f3d58",
   "orientation": "any",

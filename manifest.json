@@ -1,17 +1,17 @@
 {
-    "lang": "en-us",
-    "name": "RoboSweep App",
-    "short_name": "RoboSweep",
-    "description": "Control iRobot Create3",
-    "start_url": "/",
-    "background_color": "#2f3d58",
-    "theme_color": "#2f3d58",
-    "orientation": "any",
-    "display": "standalone",
-    "icons": [
-        {
-            "src": "/assets/icon512.png",
-            "sizes": "512x512"
-        }
-    ]
+  "lang": "en-us",
+  "name": "RoboSweep App",
+  "short_name": "RoboSweep",
+  "description": "Control iRobot Create3",
+  "start_url": "/",
+  "background_color": "#2f3d58",
+  "theme_color": "#2f3d58",
+  "orientation": "any",
+  "display": "standalone",
+  "icons": [
+    {
+      "src": "assets/icon512.png",
+      "sizes": "512x512"
+    }
+  ]
 }

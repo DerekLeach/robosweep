@@ -1,9 +1,7 @@
 import { Robot } from './robot.js';
 
 export default class General {
-  /** @type {Robot}*/
   robot;
-  /** @type {number} */
   device = 0;
 
   /**

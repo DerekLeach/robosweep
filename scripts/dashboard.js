@@ -154,9 +154,13 @@ export default class Dashboard {
 
     const changeNameButton = document.createElement('button');
     changeNameButton.innerText = this.toTitleCase("changeName");
-    // changeNameButton.addEventListener('click', () => this.robot.general.setName("My Robot"))
     changeNameButton.addEventListener('click', () => this.robot.general.setName("iRobot-6CD80E0AA"))
     this.div.append(changeNameButton);
+
+    const accelerometerButton = document.createElement('button');
+    accelerometerButton.innerText = this.toTitleCase("accelerometer");
+    accelerometerButton.addEventListener('click', () => this.robot.getAccelerometer())
+    this.div.append(accelerometerButton);
 
     document.getElementsByTagName('main')[0].append(this.div);
   }

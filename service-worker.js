@@ -2,12 +2,11 @@
 /// <reference no-default-lib="true"/>
 /// <reference lib="esnext" />
 /// <reference lib="webworker" />
-const CACHE_NAME = `robosweep-v2`;
 
 // const serviceWorker = self as ServiceWorkerGlobalScope & typeof globalThis;
 
 async function cacheFiles() {
-  const cache = await caches.open(CACHE_NAME);
+  const cache = await caches.open('robosweep-v2');
   await cache.addAll([
     '/',
     '/style.css'
@@ -15,7 +14,7 @@ async function cacheFiles() {
 }
 
 async function deleteOldCaches() {
-  const cacheAllowList = [CACHE_NAME];
+  const cacheAllowList = ['robosweep-v2'];
   let keys = await caches.keys();
 
   let promises = keys.map((key) => {

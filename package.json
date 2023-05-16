@@ -1,10 +1,7 @@
 {
   "name": "robosweep",
-  "module": "index.ts",
-  "type": "module",
   "scripts": {
-    "build": "tsc --build src/scripts",
-    "watch": "tsc --watch --project src/scripts/tsconfig.json"
+    "test": "tsc"
   },
   "devDependencies": {
     "@types/web-bluetooth": "^0.0.16",

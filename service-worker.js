@@ -28,11 +28,13 @@ async function deleteOldCaches() {
 }
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(cacheFiles());
+  /**@type {ExtendableEvent}*/
+  (event).waitUntil(cacheFiles());
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(deleteOldCaches());
+  /**@type {ExtendableEvent}*/
+  (event).waitUntil(deleteOldCaches());
 })
 
 // self.addEventListener('fetch', event => {

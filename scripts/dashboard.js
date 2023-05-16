@@ -152,6 +152,12 @@ export default class Dashboard {
     updateButton.addEventListener('click', () => this.robot.requestEasyUpdate())
     this.div.append(updateButton);
 
+    const changeNameButton = document.createElement('button');
+    changeNameButton.innerText = this.toTitleCase("changeName");
+    // changeNameButton.addEventListener('click', () => this.robot.general.setName("My Robot"))
+    changeNameButton.addEventListener('click', () => this.robot.general.setName("iRobot-6CD80E0AA"))
+    this.div.append(changeNameButton);
+
     document.getElementsByTagName('main')[0].append(this.div);
   }
   

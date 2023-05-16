@@ -191,6 +191,13 @@ export class Robot {
   /**
   @returns {Promise<void>}
   */
+  async getAccelerometer() {
+    await this.sendPacket(16, 1, true);
+  }
+
+  /**
+  @returns {Promise<void>}
+  */
   async getDockingValues() {
     await this.sendPacket(19, 1, true);
   }

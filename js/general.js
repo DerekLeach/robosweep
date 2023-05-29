@@ -13,7 +13,13 @@ export default class General {
 
   /**
   @param {"main" | "color"} board
-  @returns {Promise<void>}
+  @typedef {{
+              firmware: string,
+              hardware: string,
+              bootloader: string,
+              bluetoothProtocol: string
+           }} BoardInfo
+  @returns {Promise<BoardInfo>}
   */
   async getVersions(board) {
     const payload = new Uint8Array(1);
@@ -21,24 +27,34 @@ export default class General {
       case "main": payload.set([0xA5]); break;
       case "color": payload.set([0xC6]); break;
     }
-    await this.robot.sendPacket(this.device, 0, true, payload);
+    const packet = await this.robot.sendPacketWithResponse("getVersionsResponse", this.device, 0, payload);
+    const firmware = String.fromCharCode(packet.getUint8(4)) + "." + packet.getUint8(5) + "." + packet.getUint8(12);
+    const hardware = packet.getUint8(6) + '.' + packet.getUint8(7);
+    const bootloader = packet.getUint8(8) + '.' + packet.getUint8(9);
+    const protocol = packet.getUint8(10) + '.' + packet.getUint8(11);
+    // const bootloader = packet.subarray(8, 10).join('.');
+    // const protocol = packet.subarray(10, 12).join('.');
+    return { firmware: firmware, hardware: hardware, bootloader: bootloader, bluetoothProtocol: protocol};
   }
 
   /**
   @param {string} name
-  @returns {Promise<void>}
+  @returns {Promise<string>}
   */
   async setName(name) {
     const encoder = new TextEncoder();
     const payload = encoder.encode(name).subarray(0, 16);
-    await this.robot.sendPacket(this.device, 1, true, payload);
+    await this.robot.sendPacket(this.device, 1, false, payload);
+    return this.getName();
   }
 
   /**
-  @returns {Promise<void>}
+  @returns {Promise<string>}
   */
   async getName() {
-    await this.robot.sendPacket(this.device, 2, true);
+    const packet = await this.robot.sendPacketWithResponse("getNameResponse", this.device, 2);
+    const utf8decoder = new TextDecoder();
+    return utf8decoder.decode(packet.buffer.slice(3, 19));
   }
 
   /**
@@ -89,16 +105,20 @@ export default class General {
   }
 
   /**
-  @returns {Promise<void>}
+  @returns {Promise<string>}
   */
   async getSerialNumber() {
-    await this.robot.sendPacket(this.device, 14, true);
+    const packet = await this.robot.sendPacketWithResponse("getSerialNumberResponse", this.device, 14);
+    const utf8decoder = new TextDecoder();
+    return utf8decoder.decode(packet.buffer.slice(3, 19));
   }
 
   /**
-  @returns {Promise<void>}
+  @returns {Promise<string>}
   */
   async getSKU() {
-    await this.robot.sendPacket(this.device, 15, true);
+    const packet = await this.robot.sendPacketWithResponse("getSKU", this.device, 15);
+    const utf8decoder = new TextDecoder();
+    return utf8decoder.decode(packet.buffer.slice(3, 19));
   }
 }

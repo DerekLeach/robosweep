@@ -94,3 +94,7 @@ td:last-child {
 .close-button:hover {
   color: black;
 }
+
+input.error {
+  background-color: pink;
+}

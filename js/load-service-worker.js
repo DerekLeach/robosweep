@@ -4,8 +4,8 @@
 async function registerServiceWorker() {
   if ("serviceWorker" in navigator) {
     try {
-      const registration = await navigator.serviceWorker.register("/robosweep/service-worker.js", {
-        scope: "/robosweep/",
+      const registration = await navigator.serviceWorker.register("/service-worker.js", {
+        scope: "/",
       });
       if (registration.installing) {
         console.log("Service worker installing");

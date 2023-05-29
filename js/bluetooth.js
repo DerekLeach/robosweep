@@ -34,7 +34,7 @@ export async function displayBluetooth() {
 * @param {HTMLTableSectionElement} table
 * @returns {Promise<void>}
 */
-export async function scanForRobots(button, table) {
+async function scanForRobots(button, table) {
   button.disabled = true;
   button.innerText = "Scanning";
   try {
@@ -74,14 +74,21 @@ async function connectRobot( gattServer, connectButton, forgetButton) {
   sendMessage("Connecting", 3000);
   try {
     gattServer = await gattServer.connect()
+    const uart = await gattServer.getPrimaryService(robotServices.uart.uuid);
+    const rx = await uart.getCharacteristic(robotServices.uart.characteristic.rx);
+    const tx = await uart.getCharacteristic(robotServices.uart.characteristic.tx);
     sendMessage("Connected", 3000);
     connectButton.innerText = "Disconnect";
-
-    const robot = new Robot(gattServer);
-    robot.listenForIncomingPackets();
+    const robot = new Robot(gattServer, rx, tx);
     const dashboard = new Dashboard(robot, forgetButton);
+    const controller = new AbortController();
 
-    gattServer.device.addEventListener("gattserverdisconnected", () => onDisconnected(connectButton, dashboard));
+    // @ts-ignore
+    gattServer.device.addEventListener(
+      "gattserverdisconnected",
+      () => onDisconnected(connectButton, dashboard, controller),
+      {signal: controller.signal}
+    );
 
   } catch (error) {
     if (error instanceof DOMException) {
@@ -158,9 +165,11 @@ async function forgetDevice(button, row, gattServer) {
 /**
 @param {HTMLButtonElement} button
 @param {Dashboard} dashboard
+@param {AbortController} controller
 */
-function onDisconnected(button, dashboard) {
+function onDisconnected(button, dashboard, controller) {
   button.innerText = "Connect";
   dashboard.remove();
+  controller.abort();
   sendMessage("Robot disconnected", 3000);
 }

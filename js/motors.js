@@ -61,7 +61,7 @@ export default class Motors {
     const bytes = utils.getBytes(distance, 4, true);
     payload.set(bytes);
 
-    const packet = await this.robot.sendPacketWithResponseAlt("driveDistanceFinishedResponse", this.device, 8, payload);
+    const packet = await this.robot.sendPacketWithResponse("driveDistanceFinishedResponse", this.device, 8, payload);
     return this.#positionStatus(packet);
   }
 
@@ -127,7 +127,7 @@ export default class Motors {
   */
   async dock() {
     sendMessage("Docking", 4000);
-    const packet = await this.robot.sendPacketWithResponseAlt("dock", this.device, 19);
+    const packet = await this.robot.sendPacketWithResponse("dock", this.device, 19);
     sendMessage("Docking", 4000);
     
     return this.#dockStatus(packet);
@@ -138,7 +138,7 @@ export default class Motors {
   */
   async undock() {
     sendMessage("Undocking", 4000);
-    const packet = await this.robot.sendPacketWithResponseAlt("undock", this.device, 20);
+    const packet = await this.robot.sendPacketWithResponse("undock", this.device, 20);
     sendMessage("Undocked", 4000);
 
     return this.#dockStatus(packet);

@@ -73,10 +73,10 @@ export class Robot {
         const command = packet.at(1);
         const packetID = packet.at(2);
         const payload = packet.subarray(3, 19);
-        const crc = packet.at(19);
+        // const crc = packet.at(19);
         const utf8decoder = new TextDecoder();
-        const message = utf8decoder.decode(payload);
-        console.log("Device: ", device, " command: ", command, " ID: ", packetID, "CRC: ", crc, " message: ", message, " payload: ", payload.toString());
+        // const message = utf8decoder.decode(payload);
+        // console.log("Device: ", device, " command: ", command, " ID: ", packetID, "CRC: ", crc, " message: ", message, " payload: ", payload.toString());
         switch (device) {
           case 0: // General
             switch (command) {
@@ -109,7 +109,7 @@ export class Robot {
             break;
           case 11: // IR Proximity
             switch (command) {
-              // case 0: this.events.IRProximityEvent(characteristic.value); break;
+              case 0: this.events.IRProximityEvent(characteristic.value); break;
               case 1: this.events.getIRProximityValuesWithTimestampResponse(characteristic.value); break;
               case 2: this.events.getPackedIRProximityValuesAndStatesResponse(characteristic.value); break;
               // case 4: this.events.getEventThresholdsResponse(characteristic.value); break;

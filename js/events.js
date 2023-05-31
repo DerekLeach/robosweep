@@ -275,15 +275,20 @@ export default class Events {
   touchSensorEvent(packet) {
     this.#updateEventID(packet);
     const time = utils.readTimestamp(packet)
-    const state = packet.getUint8(7).toString(2).padStart(8, '0').slice(0, 2);
-    let buttons;
-    switch (state) {
-      case "00": buttons = " No Button";
-      case "01": buttons = " Button 2";
-      case "10": buttons = " Button 1";
-      case "11": buttons = " Both Buttons";
-    }
-    sendMessage(time + buttons, 3000);
+    // const state = packet.getUint8(7).toString(2).padStart(8, '0').slice(0, 2);
+    const buttons = [false, false];
+    // switch (state) {
+    //   case "00": buttons = " No Button"; break;
+    //   case "01": buttons = " Button 2"; break;
+    //   case "10": buttons = " Button 1"; break;
+    //   case "11": buttons = " Both Buttons"; break;
+    // }
+    switch (packet.getUint8(7)) {
+      case 16: buttons[1] = true; break;
+      case 32: buttons[0] = true; break;
+      case 48: buttons[0] = true, buttons[1] = true; break;
+  }
+    sendMessage(time + buttons.toString(), 3000);
   }
 
   /**
@@ -385,7 +390,7 @@ export default class Events {
   /**
   @typedef {{timestamp: string, triggered: boolean[], value: number[]}} IRSensors
   @param {DataView} packet
-  @returns {IRSensors}
+  @returns {IRSensors} Sensors 0 to 6, left to right from robot's point of view
   */
   #packedIRProximity(packet) {
     const timestamp = utils.readTimestamp(packet)
@@ -395,18 +400,8 @@ export default class Events {
     const value = new Array(numberOfSensors);
 
     for (let i = 0; i < numberOfSensors; i++) {
-      if (packet.getUint8(7) & 2 ** i) {
-        triggered[i] = true;
-      } else {
-        triggered[i] = false;
-      }
-
-      const slice = (i % 2)*4;
-      value[i] = parseInt(
-        packet.getUint8(i+8).toString(2)
-        + packet.getUint8(Math.floor(i/2)+15).toString(2).padStart(8, '0').slice(slice, slice + 4),
-        2
-      );
+      triggered[i] = packet.getUint8(7) & 2 ** i ? true : false;
+      value[i] = packet.getUint8(i+8)*16 + ((packet.getUint8(Math.floor(i/2) + 15) >> 4*(1-i%2)) & 15);
     }
     
     return {timestamp: timestamp, triggered: triggered, value: value};

@@ -1,5 +1,5 @@
 import { Robot } from './robot.js';
-// import sendMessage from './message.js';
+import Sweep from './sweep.js';
 
 export default class Dashboard {
   robot;
@@ -139,6 +139,7 @@ export default class Dashboard {
     accelerometerButton.addEventListener('click', () => robot.getAccelerometer())
     div.append(accelerometerButton);
 
+
     const executeCommandsButton = document.createElement('button');
     executeCommandsButton.innerText = this.toTitleCase("Run program");
     executeCommandsButton.addEventListener('click', () => this.#someProgram(robot, executeCommandsButton))
@@ -158,25 +159,29 @@ export default class Dashboard {
   @returns {Promise<void>}
   */
   async #someProgram(robot, button) {
-    /** @type {[number, number, number, number, number, number, number]}*/
-    const thresholds = [300, 300, 300, 300, 300, 300, 300];
+    const program = new Sweep(robot);
+    await program.start();
 
-    if (!await robot.irProximity.setEventThresholds(30, thresholds)) {
-      throw Error("Couldn't set thresholds");
-    }
+    // /** @type {[number, number, number, number, number, number, number]}*/
+    // const thresholds = [300, 300, 300, 300, 300, 300, 300];
 
-    const {contacts: docked, ...sensors} = await robot.getDockingValues();
-    console.log(sensors);
+    // if (!await robot.irProximity.setEventThresholds(30, thresholds)) {
+    //   throw Error("Couldn't set thresholds");
+    // }
 
-    if (docked) {
-      const {status, result} = await robot.motors.undock();
-      if (status !== 'succeeded' || result === 'docked') throw Error("Undocking failed");
-    }
+    // const {contacts: docked, ...sensors} = await robot.getDockingValues();
+    // console.log(sensors);
+
+    // if (docked) {
+    //   const {status, result} = await robot.motors.undock();
+    //   if (status !== 'succeeded' || result === 'docked') throw Error("Undocking failed");
+    // }
   
     // await robot.motors.setLeftAndRightMotorSpeed(50, 50);
-    await robot.motors.driveDistance(200)
+    // await robot.motors.driveDistance(200)
 
-    await robot.motors.dock();
+
+    // await robot.motors.dock();
 
   }
 

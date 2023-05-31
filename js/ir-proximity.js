@@ -58,7 +58,7 @@ export default class IRProximity {
   @returns {Promise<IREventThresholds>}
   */
   async getEventThresholds() {
-    const packet = await this.robot.sendPacketWithResponseAlt("getEventThresholdsResponse", this.device, 4);
+    const packet = await this.robot.sendPacketWithResponse("getEventThresholdsResponse", this.device, 4);
     const hysteresis = packet.getUint16(3);
     const thresholds = [];
     for (let i = 5; i < 18; i += 2) {

@@ -44,7 +44,7 @@ export default class General {
   async setName(name) {
     const encoder = new TextEncoder();
     const payload = encoder.encode(name).subarray(0, 16);
-    await this.robot.sendPacket(this.device, 1, false, payload);
+    await this.robot.sendPacketWithoutResponse(this.device, 1, payload);
     return this.getName();
   }
 
@@ -61,14 +61,14 @@ export default class General {
   @returns {Promise<void>}
   */
   async stopAndReset() {
-    await this.robot.sendPacket(this.device, 3);
+    await this.robot.sendPacketWithoutResponse(this.device, 3);
   }
 
   /**
   @returns {Promise<void>}
   */
   async disconnect() {
-    await this.robot.sendPacket(this.device, 6);
+    await this.robot.sendPacketWithoutResponse(this.device, 6);
   }
 
   /**
@@ -81,7 +81,7 @@ export default class General {
       const byte = 15 - Math.floor(event / 8);
       payload.set([/**@type {number}*/(payload.at(byte)) + 2 ** (event % 8)], byte);
     }
-    await this.robot.sendPacket(this.device, 7, false, payload);
+    await this.robot.sendPacketWithoutResponse(this.device, 7, payload);
   }
 
   /**
@@ -94,14 +94,21 @@ export default class General {
       const byte = 15 - Math.floor(event / 8);
       payload.set([/**@type {number}*/(payload.at(byte)) + 2 ** (event % 8)], byte);
     }
-    await this.robot.sendPacket(this.device, 9, false, payload);
+    await this.robot.sendPacketWithoutResponse(this.device, 9, payload);
   }
 
   /**
   @returns {Promise<void>}
   */
   async getEnabledEvents() {
-    await this.robot.sendPacket(this.device, 11, true);
+    const packet = await this.robot.sendPacketWithResponse("getEnabledEventsResponse", this.device, 11);
+    const devicesEnabled = [];
+    for (let i = 18; i >= 3; i--) {
+      for (let device of Array.from(packet.getUint8(i).toString(2).padStart(8, '0')).reverse()) {
+        devicesEnabled.push(Number(device));
+      }
+    }
+    console.log("Devices enabled", devicesEnabled);
   }
 
   /**

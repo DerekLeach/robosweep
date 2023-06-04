@@ -1,11 +1,12 @@
 import { Robot } from './robot.js';
 import sendMessage from './message.js';
 import * as utils from './utils.js';
+/**
+@typedef {{status: "succeeded" | "aborted" | "canceled" | "unknown", result: "not docked" | "docked" }} DockStatus
+*/
 
 export default class Motors {
-  /**@type {Robot}*/
   robot;
-
   device = 1;
 
   /**
@@ -38,7 +39,7 @@ export default class Motors {
     const payload = new Uint8Array(8);
     payload.set(utils.getBytes(motorSpeed, 4, true, 100, -100));
 
-    await this.robot.sendPacket(this.device, 6, false, payload);
+    await this.robot.sendPacketWithoutResponse(this.device, 6, payload);
   }
 
   /**
@@ -49,7 +50,7 @@ export default class Motors {
     const payload = new Uint8Array(8);
     payload.set(utils.getBytes(motorSpeed, 4, true, 100, -100));
 
-    await this.robot.sendPacket(this.device, 7, false, payload);
+    await this.robot.sendPacketWithoutResponse(this.device, 7, payload);
   }
 
   /**
@@ -67,13 +68,14 @@ export default class Motors {
 
   /**
   @param {number} angle in deci-degrees i.e. 3600 per rotation
-  @returns {Promise<void>}
+  @returns {Promise<PositionStatus>}
   */
   async rotateAngle(angle) {
     const payload = new Uint8Array(4);
     const bytes = utils.getBytes(angle, 4, true);
     payload.set(bytes);
-    await this.robot.sendPacket(this.device, 12, true, payload);
+    const packet = await this.robot.sendPacketWithResponse("rotateAngleFinishedResponse", this.device, 12, payload);
+    return this.#positionStatus(packet);
   }
 
   /**
@@ -86,21 +88,22 @@ export default class Motors {
     const bytes = utils.getBytes(amount, 2, false, 3000);
     payload.set([active]);
     payload.set(bytes, 1);
-    await this.robot.sendPacket(this.device, 13, false, payload);
+    await this.robot.sendPacketWithoutResponse(this.device, 13, payload);
   }
 
   /**
   @returns {Promise<void>}
   */
   async resetPosition() {
-    await this.robot.sendPacket(this.device, 15);
+    await this.robot.sendPacketWithoutResponse(this.device, 15);
   }
 
   /**
-  @returns {Promise<void>}
+  @returns {Promise<PositionStatus>}
   */
   async getPosition() {
-    await this.robot.sendPacket(this.device, 16, true);
+    const packet = await this.robot.sendPacketWithResponse("getPositionResponse", this.device, 16);
+    return this.#positionStatus(packet);
   }
 
   /**
@@ -109,7 +112,7 @@ export default class Motors {
   @param {number} heading final orientation in deci-degrees;
                           max: 3599;
                            -1: robot can choose final orientation
-  @returns {Promise<void>}
+  @returns {Promise<PositionStatus>}
   */
   async navigateToPosition(x, y, heading = -1) {
     const payload = new Uint8Array(10);
@@ -119,7 +122,8 @@ export default class Motors {
     const headingBytes = utils.getBytes(heading, 2, true, 3599, -1);
 
     payload.set(xBytes.concat(yBytes, headingBytes));
-    await this.robot.sendPacket(this.device, 17, true, payload);
+    const packet = await this.robot.sendPacketWithResponse("navigateToPositionFinishedResponse", this.device, 17, payload);
+    return this.#positionStatus(packet);
   }
 
   /**
@@ -129,7 +133,7 @@ export default class Motors {
     sendMessage("Docking", 4000);
     const packet = await this.robot.sendPacketWithResponse("dock", this.device, 19);
     sendMessage("Docking", 4000);
-    
+
     return this.#dockStatus(packet);
   }
 
@@ -153,18 +157,30 @@ export default class Motors {
                          min: -2,147,483,648 (0x80000000)
                          Positive value indicates rotation point to the right of the robot
                          max:  2,147,483,647 (0x7FFFFFFF)
-  @returns {Promise<void>}
+  @returns {Promise<PositionStatus>}
   */
   async driveArc(angle, radius) {
     const angleBytes = utils.getBytes(angle, 4, true);
     const radiusBytes = utils.getBytes(radius, 4, true);
     const payload = new Uint8Array(8);
     payload.set(angleBytes.concat(radiusBytes));
-    await this.robot.sendPacket(this.device, 27, true, payload);
+    const packet = await this.robot.sendPacketWithResponse("driveArcFinishedResponse", this.device, 27, payload);
+    return this.#positionStatus(packet);
   }
 
   /**
-  @typedef {{status: "succeeded" | "aborted" | "canceled" | "unknown", result: "not docked" | "docked" }} DockStatus
+  @typedef {{x: number, y: number, heading: number}} PositionStatus
+  @param {DataView} packet
+  @returns {PositionStatus}
+  */
+  #positionStatus(packet) {
+    const x = packet.getInt32(7);
+    const y = packet.getInt32(11);
+    const heading = packet.getInt16(15) / 10.0;
+    return { x: x, y: y, heading: heading };
+  }
+
+  /**
   @param {DataView} packet
   @returns {DockStatus}
   */
@@ -178,15 +194,4 @@ export default class Motors {
     return { status: status, result: result };
   }
 
-  /**
-  @typedef {{x: number, y: number, heading: number}} PositionStatus
-  @param {DataView} packet
-  @returns {PositionStatus}
-  */
-  #positionStatus(packet) {
-    const x = packet.getInt32(7);
-    const y = packet.getInt32(11);
-    const heading = packet.getInt16(15)/10.0;
-    return {x: x, y: y, heading: heading};
-  }
 }

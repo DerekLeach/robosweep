@@ -1,6 +1,11 @@
 import { Robot } from './robot.js';
 import * as utils from './utils.js';
 
+/**
+@typedef {import('./robot.js').IRSensors} IRSensors
+@typedef {{hysteresis: number, thresholds: [number, number, number, number, number, number, number]}} IREventThresholds
+*/
+
 export default class IRProximity {
   robot;
   device = 11;
@@ -14,17 +19,25 @@ export default class IRProximity {
   
 
   /**
-  @returns {Promise<void>}
+  @returns {Promise<number[]>}
   */
   async getIRProximityValuesWithTimestamp() {
-    await this.robot.sendPacket(this.device, 1, true);
+    const packet = await this.robot.sendPacketWithResponse("getIRProximityValuesWithTimestampResponse", this.device, 1);
+    // const time = utils.readTimestamp(packet)
+    const sensors = [];
+    for (let i = 7; i < 18; i += 2) {
+      sensors.push(packet.getUint16(i));
+    }
+    return sensors;
   }
 
   /**
-  @returns {Promise<void>}
+  @returns {Promise<IRSensors>}
   */
   async getPackedIRProximityValuesAndStates() {
-    await this.robot.sendPacket(this.device, 2, true);
+    const packet = await this.robot.sendPacketWithResponse("getPackedIRProximityValuesAndStatesResponse", this.device, 2);
+
+    return this.robot.readPackedIRProximity(packet);
   }
   
   /**
@@ -54,7 +67,6 @@ export default class IRProximity {
   }
   
   /**
-  @typedef {{hysteresis: number, thresholds: [number, number, number, number, number, number, number]}} IREventThresholds
   @returns {Promise<IREventThresholds>}
   */
   async getEventThresholds() {

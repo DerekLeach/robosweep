@@ -6,6 +6,13 @@ import IRProximity from './ir-proximity.js';
 import Events from './events.js';
 import * as utils from './utils.js';
 
+/**
+@typedef {{timestamp: string, triggered: boolean[], value: number[]}} IRSensors
+@typedef {{percent: number, voltage: number}} BatteryLevel
+@typedef {{contacts: boolean, IRSensor0: number, IRSensor1: number}} DockingSensors
+@typedef {{ wlan0: string, wlan1: string, usb0: string }} IPv4Addresses
+*/
+
 export const robotServices = {
   identifier: {
     uuid: '48c5d828-ac2a-442d-97a3-0c9822b04979',
@@ -83,7 +90,7 @@ export class Robot {
               // case 0: this.events.getVersionsResponse(characteristic.value); break;
               // case 2: this.events.getNameResponse(characteristic.value); break;
               case 4: this.events.stopProject(characteristic.value); break;
-              case 11: this.events.getEnabledEventsResponse(characteristic.value); break;
+              // case 11: this.events.getEnabledEventsResponse(characteristic.value); break;
               // case 14: this.events.getSerialNumberResponse(characteristic.value); break;
               // case 15: this.events.getSKU(characteristic.value); break;
             }
@@ -91,27 +98,27 @@ export class Robot {
           case 1: // Motors
             switch (command) {
               // case 8: this.events.driveDistanceFinishedResponse(characteristic.value); break;
-              case 12: this.events.rotateAngleFinishedResponse(characteristic.value); break;
-              case 16: this.events.getPositionResponse(characteristic.value); break;
-              case 17: this.events.navigateToPositionFinishedResponse(characteristic.value); break;
+              // case 12: this.events.rotateAngleFinishedResponse(characteristic.value); break;
+              // case 16: this.events.getPositionResponse(characteristic.value); break;
+              // case 17: this.events.navigateToPositionFinishedResponse(characteristic.value); break;
               // case 19: this.events.dock(characteristic.value); break;
               // case 20: this.events.undock(characteristic.value); break;
-              case 27: this.events.driveArcFinishedResponse(characteristic.value); break;
+              // case 27: this.events.driveArcFinishedResponse(characteristic.value); break;
               case 29: this.events.motorStallEvent(characteristic.value); break;
             }
             break;
           case 5: // Sound
             switch (command) {
-              case 0: this.events.playNoteFinishedResponse(characteristic.value); break;
-              case 4: this.events.sayPhraseFinishedResponse(characteristic.value); break;
-              case 5: this.events.playSweepFinishedResponse(characteristic.value); break;
+              // case 0: this.events.playNoteFinishedResponse(characteristic.value); break;
+              // case 4: this.events.sayPhraseFinishedResponse(characteristic.value); break;
+              // case 5: this.events.playSweepFinishedResponse(characteristic.value); break;
             }
             break;
           case 11: // IR Proximity
             switch (command) {
               case 0: this.events.IRProximityEvent(characteristic.value); break;
-              case 1: this.events.getIRProximityValuesWithTimestampResponse(characteristic.value); break;
-              case 2: this.events.getPackedIRProximityValuesAndStatesResponse(characteristic.value); break;
+              // case 1: this.events.getIRProximityValuesWithTimestampResponse(characteristic.value); break;
+              // case 2: this.events.getPackedIRProximityValuesAndStatesResponse(characteristic.value); break;
               // case 4: this.events.getEventThresholdsResponse(characteristic.value); break;
             }
             break;
@@ -128,7 +135,7 @@ export class Robot {
             break;
           case 16: // Accelerometer
             switch (command) {
-              case 1: this.events.getAccelerometerResponse(characteristic.value); break;
+              // case 1: this.events.getAccelerometerResponse(characteristic.value); break;
             }
             break;
           case 17: // Touch Sensors
@@ -243,7 +250,7 @@ export class Robot {
     }
 
     payload.set([stateByte, red, green, blue]);
-    await this.sendPacket(3, 2, false, payload);
+    await this.sendPacketWithoutResponse(3, 2, payload);
   }
 
   /**
@@ -259,37 +266,31 @@ export class Robot {
   }
 
   /**
-  @returns {Promise<void>}
+  @returns {Promise<{x: number, y: number, z: number}>}
   */
   async getAccelerometer() {
-    await this.sendPacket(16, 1, true);
+    const packet = await this.sendPacketWithResponse("getAccelerometerResponse", 16, 1);
+    // const time = utils.readTimestamp(packet)
+    const x = packet.getInt16(7);
+    const y = packet.getInt16(9);
+    const z = packet.getInt16(11);
+    return { x: x, y: y, z: z };
   }
 
   /**
-  @typedef {{contacts: boolean, IRSensor0: number, IRSensor1: number}} DockingStatus
-  @returns {Promise<DockingStatus>}
+  @returns {Promise<DockingSensors>}
   */
   async getDockingValues() {
     const packet = await this.sendPacketWithResponse("getDockingValuesResponse", 19, 1);
-    // const time = utils.readTimestamp(packet);
-    const contacts = packet.getUint8(7) === 0 ? false : packet.getUint8(7) === 1 ? true : false;
-    const irSensor0 = packet.getUint8(8);
-    const irSensor1 = packet.getUint8(9);
-    return { contacts: contacts, IRSensor0: irSensor0, IRSensor1: irSensor1 };
+    return this.readDockingSensor(packet);
   }
 
   /**
-  @typedef {{ wlan0: string, wlan1: string, usb0: string }} IPv4Addresses
   @returns {Promise<IPv4Addresses>}
   */
   async getIPv4Addresses() {
     const packet = await this.sendPacketWithResponse("getIPv4AddressesResponse", 100, 1);
-
-    const uint8 = new Uint8Array(packet.buffer);
-    const wlan0 = uint8.subarray(3, 7).join(".");
-    const wlan1 = uint8.subarray(7, 11).join(".");
-    const usb0 = uint8.subarray(11, 15).join(".");
-    return { wlan0: wlan0, wlan1: wlan1, usb0: usb0 }
+    return this.readIPv4Addresses(packet);
   }
 
   /**
@@ -299,43 +300,6 @@ export class Robot {
     await this.sendPacketWithoutResponse(100, 2);
   }
 
-  /**
-  @returns {number}
-  */
-  #getNewPacketID() {
-    if (this.packetID >= 255) {
-      this.packetID = 0;
-      return this.packetID;
-    } else {
-      return this.packetID++
-    }
-  }
-
-  /**
-  @param {number} device
-  @param {number} command
-  @param {boolean} response
-  @param {Uint8Array} [payload]
-  */
-  async sendPacket(device, command, response = false, payload) {
-    const buffer = new ArrayBuffer(20);
-    const packet = new Uint8Array(buffer);
-
-    const id = this.#getNewPacketID();
-    packet.set([device, command, id]);
-    if (payload instanceof Uint8Array && payload.length > 16) {
-      sendMessage("Payload too long");
-    } else if (payload instanceof Uint8Array && payload.length <= 16) {
-      packet.set(payload, 3);
-    }
-    const crc = utils.calculateCRC(packet.subarray(0, 19));
-    packet.set([crc], 19);
-
-    if (response) {
-      this.requestStack.add(packet.subarray(0, 3).toString());
-    }
-    await this.rx.writeValueWithResponse(buffer);
-  }
 
   /**
   @param {number} device
@@ -347,30 +311,6 @@ export class Robot {
     const packet = this.#assemblePacket(device, command, payload)
     return await this.rx.writeValueWithResponse(packet.buffer);
   }
-
-  // /**
-  // @param {number} device
-  // @param {number} command
-  // @param {Uint8Array} [payload]
-  // @returns {Promise<DataView>}
-  // */
-  // async sendPacketWithResponse(device, command, payload) {
-  //   const packet = this.#assemblePacket(device, command, payload)
-  //   const packetID = packet.subarray(0, 3).toString();
-  //   const controller = new AbortController();
-
-  //   const result = new Promise((resolve, reject) => {
-  //     this.tx.addEventListener(
-  //       "characteristicvaluechanged",
-  //       () => this.#listenForResponse(this.tx, resolve, reject, packetID, controller),
-  //       // @ts-ignore
-  //       { signal: controller.signal }
-  //     )
-  //   });
-  //   await this.rx.writeValueWithResponse(packet.buffer);
-
-  //   return result;
-  // }
 
   /**
   @param {string} event
@@ -422,24 +362,69 @@ export class Robot {
   }
 
   /**
-  @param {BluetoothRemoteGATTCharacteristic} tx
-  @param {function} resolve
-  @param {function} reject
-  @param {string} packetID
-  @param {AbortController} controller
+  @returns {number}
   */
-  #listenForResponse(tx, resolve, reject, packetID, controller) {
-    if (tx.value instanceof DataView) {
-      const responsePacket = new Uint8Array(tx.value.buffer);
-      if (utils.calculateCRC(responsePacket) === 0) {
-        if (responsePacket.subarray(0, 3).toString() === packetID) {
-          controller.abort();
-          resolve(tx.value);
-        }
-      } else {
-        sendMessage("Packet corrupted");
-        reject(new Error("Packet corrupted"));
-      }
+  #getNewPacketID() {
+    if (this.packetID >= 255) {
+      this.packetID = 0;
+      return this.packetID;
+    } else {
+      return this.packetID++
     }
+  }
+
+  /**
+  @param {DataView} packet
+  @returns {IRSensors} Sensors 0 to 6, left to right from robot's point of view
+  */
+  readPackedIRProximity(packet) {
+    const timestamp = utils.readTimestamp(packet)
+
+    const numberOfSensors = 7;
+    const triggered = new Array(numberOfSensors);;
+    const value = new Array(numberOfSensors);
+
+    for (let i = 0; i < numberOfSensors; i++) {
+      triggered[i] = packet.getUint8(7) & 2 ** i ? true : false;
+      value[i] = packet.getUint8(i + 8) * 16 + ((packet.getUint8(Math.floor(i / 2) + 15) >> 4 * (1 - i % 2)) & 15);
+    }
+
+    return { timestamp: timestamp, triggered: triggered, value: value };
+  }
+
+  /**
+  @param {DataView} packet
+  @returns {BatteryLevel}
+  */
+
+  readBatteryLevel(packet) {
+    // const timestamp = utils.readTimestamp(packet)
+    const voltage = packet.getUint16(7);
+    const percent = packet.getUint8(9);
+    return { percent: percent, voltage: voltage / 10.0 };
+  }
+
+  /**
+  @param {DataView} packet
+  @returns {DockingSensors}
+  */
+  readDockingSensor(packet) {
+    // const time = utils.readTimestamp(packet);
+    const contacts = packet.getUint8(7) === 0 ? false : packet.getUint8(7) === 1 ? true : false;
+    const irSensor0 = packet.getUint8(8);
+    const irSensor1 = packet.getUint8(9);
+    return { contacts: contacts, IRSensor0: irSensor0, IRSensor1: irSensor1 };
+  }
+
+  /**
+  @param {DataView} packet
+  @returns {IPv4Addresses}
+  */
+  readIPv4Addresses(packet) {
+    const uint8 = new Uint8Array(packet.buffer);
+    const wlan0 = uint8.subarray(3, 7).join(".");
+    const wlan1 = uint8.subarray(7, 11).join(".");
+    const usb0 = uint8.subarray(11, 15).join(".");
+    return { wlan0: wlan0, wlan1: wlan1, usb0: usb0 }
   }
 }

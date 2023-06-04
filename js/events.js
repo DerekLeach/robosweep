@@ -1,6 +1,17 @@
 import { Robot } from './robot.js';
 import sendMessage from './message.js';
 import * as utils from './utils.js';
+/**
+@typedef {import('./robot.js').IRSensors} IRSensors
+@typedef {import('./robot.js').BatteryLevel} BatteryLevel
+@typedef {import('./robot.js').DockingSensors} DockingSensors
+@typedef {import('./robot.js').IPv4Addresses} IPv4Addresses
+@typedef {"left" | "right" | "marker" | "unknown"} Motor
+@typedef {"no stall" | "overcurrent" | "undercurrent" | "underspeed" | "saturated PID" | "timeout" | "unknown"} Cause
+@typedef {{ motor: Motor, cause: Cause }} MotorStall
+@typedef {{left: boolean, right: boolean}} Bumper
+@typedef {[boolean, boolean]} Button
+*/
 
 export default class Events {
   robot;
@@ -23,153 +34,30 @@ export default class Events {
 
   /**
   @param {DataView} packet
-  @returns {void}
-  */
-  getEnabledEventsResponse(packet) {
-    this.#checkRequestStack(packet);
-    const devicesEnabled = [];
-    for (let i = 18; i >= 3; i--) {
-      for (let device of Array.from(packet.getUint8(i).toString(2).padStart(8, '0')).reverse()) {
-        devicesEnabled.push(Number(device));
-      }
-    }
-    console.log("Devices enabled", devicesEnabled);
-    sendMessage("Check log");
-  }
-
-  // /**
-  // @param {Uint8Array} packet
-  // @returns {void}
-  // */
-  // getSerialNumberResponse(packet) {
-  //   this.#checkRequestStack(packet);
-  //   const utf8decoder = new TextDecoder();
-  //   sendMessage("Serial number: " + utf8decoder.decode(packet.subarray(3, 19)));
-  // }
-
-  // /**
-  // @param {Uint8Array} packet
-  // @returns {void}
-  // */
-  // getSKU(packet) {
-  //   this.#checkRequestStack(packet);
-  //   const utf8decoder = new TextDecoder();
-  //   sendMessage("SKU: " + utf8decoder.decode(packet.subarray(3, 19)));
-  // }
-
-  /**
-  @param {DataView} packet
-  @returns {void}
-  */
-  driveDistanceFinishedResponse(packet) {
-    this.#checkRequestStack(packet);
-    this.#positionStatus(packet);
-  }
-
-  /**
-  @param {DataView} packet
-  @returns {void}
-  */
-  rotateAngleFinishedResponse(packet) {
-    this.#checkRequestStack(packet);
-    this.#positionStatus(packet);
-  }
-
-  /**
-  @param {DataView} packet
-  @returns {void}
-  */
-  getPositionResponse(packet) {
-    this.#checkRequestStack(packet);
-    this.#positionStatus(packet);
-  }
-
-  /**
-  @param {DataView} packet
-  @returns {void}
-  */
-  navigateToPositionFinishedResponse(packet) {
-    this.#checkRequestStack(packet);
-    this.#positionStatus(packet);
-  }
-
-  /**
-  @param {DataView} packet
-  @returns {void}
-  */
-  dock(packet) {
-    this.#checkRequestStack(packet);
-    sendMessage(this.#dockStatus(packet));
-  }
-
-  /**
-  @param {DataView} packet
-  @returns {void}
-  */
-  undock(packet) {
-    this.#checkRequestStack(packet);
-    sendMessage(this.#dockStatus(packet));
-  }
-
-  /**
-  @param {DataView} packet
-  @returns {void}
+  @returns {MotorStall}
   */
   motorStallEvent(packet) {
     this.#updateEventID(packet);
-    const time = utils.readTimestamp(packet)
-    let motor;
+    // const time = utils.readTimestamp(packet)
+
+    let /**@type {Motor}*/motor;
     switch (packet.getUint8(7)) {
-      case 0: motor = "Left"; break;
-      case 1: motor = "Right"; break;
-      case 2: motor = "Marker/eraser"; break;
+      case 0: motor = "left"; break;
+      case 1: motor = "right"; break;
+      case 2: motor = "marker"; break;
+      default: motor = "unknown";
     }
-    let cause;
+    let /**@type {Cause}*/cause;
     switch (packet.getUint8(8)) {
-      case 0: cause = "No stall"; break;
-      case 1: cause = "Overcurrent"; break;
-      case 2: cause = "Undercurrent"; break;
-      case 3: cause = "Underspeed"; break;
-      case 4: cause = "Saturated PID"; break;
-      case 5: cause = "Timeout"; break;
+      case 0: cause = "no stall"; break;
+      case 1: cause = "overcurrent"; break;
+      case 2: cause = "undercurrent"; break;
+      case 3: cause = "underspeed"; break;
+      case 4: cause = "saturated PID"; break;
+      case 5: cause = "timeout"; break;
+      default: cause = "unknown";
     }
-    sendMessage(time + "; " + cause + " in " + motor + " motor!");
-  }
-
-  /**
-  @param {DataView} packet
-  @returns {void}
-  */
-  driveArcFinishedResponse(packet) {
-    this.#checkRequestStack(packet);
-    this.#positionStatus(packet);
-  }
-
-  /**
-  @param {DataView} packet
-  @returns {void}
-  */
-  playNoteFinishedResponse(packet) {
-    this.#checkRequestStack(packet);
-    sendMessage("Finished playing note", 3000);
-  }
-
-  /**
-  @param {DataView} packet
-  @returns {void}
-  */
-  sayPhraseFinishedResponse(packet) {
-    this.#checkRequestStack(packet);
-    sendMessage("Finished saying phrase", 3000);
-  }
-
-  /**
-  @param {DataView} packet
-  @returns {void}
-  */
-  playSweepFinishedResponse(packet) {
-    this.#checkRequestStack(packet);
-    sendMessage("Finished playing sweep", 3000);
+    return {motor: motor, cause: cause};
   }
 
   /**
@@ -178,140 +66,65 @@ export default class Events {
   */
   IRProximityEvent(packet) {
     this.#updateEventID(packet);
-    console.log(this.#packedIRProximity(packet));
-    return this.#packedIRProximity(packet);
+    console.log(this.robot.readPackedIRProximity(packet));
+    return this.robot.readPackedIRProximity(packet);
   }
 
   /**
   @param {DataView} packet
-  @returns {void}
-  */
-  getIRProximityValuesWithTimestampResponse(packet) {
-    this.#checkRequestStack(packet);
-    const time = utils.readTimestamp(packet)
-    const sensors = [];
-    for (let i = 7; i < 18; i += 2) {
-      sensors.push(packet.getUint16(i));
-    }
-    sendMessage(time + sensors.toString());
-  }
-
-  /**
-  @param {DataView} packet
-  @returns {void}
-  */
-  getPackedIRProximityValuesAndStatesResponse(packet) {
-    this.#checkRequestStack(packet);
-    console.log(this.#packedIRProximity(packet));
-  }
-
-  /**
-  @param {DataView} packet
-  @returns {void}
-  */
-  getEventThresholdsResponse(packet) {
-    this.#checkRequestStack(packet);
-    const hysteresis = packet.getUint16(3);
-    const thresholds = [];
-    for (let i = 5; i < 18; i += 2) {
-      thresholds.push(packet.getUint16(i))
-    }
-    sendMessage("Hysteresis: " + hysteresis + " Thresholds: " + thresholds.toString());
-  }
-
-  /**
-  @param {DataView} packet
-  @returns {void}
+  @returns {Bumper}
   */
   bumperEvent(packet) {
     this.#updateEventID(packet);
-    const time = utils.readTimestamp(packet)
+    // const time = utils.readTimestamp(packet)
     const state = packet.getUint8(7);
-    let bumper;
+    const bumper = {left: false, right: false};
     switch (state) {
-      case 0x00: bumper = "None"; break;
-      case 0x40: bumper = "Right"; break;
-      case 0x80: bumper = "Left"; break;
-      case 0xC0: bumper = "Both"; break;
+      case 0x40: bumper.right = true; break;
+      case 0x80: bumper.left = true; break;
+      case 0xC0: bumper.left = true; bumper.right = true; break;
     }
-    sendMessage(time + "; Bumper: " + bumper, 3000);
+    return bumper;
   }
 
   /**
   @param {DataView} packet
-  @returns {void}
+  @returns {BatteryLevel}
   */
   batteryLevelEvent(packet) {
     this.#updateEventID(packet);
-    sendMessage(this.#getBatteryLevel(packet), 3000);
-  }
-
-  // /**
-  // @param {Uint8Array} packet
-  // @returns {void}
-  // */
-  // getBatteryLevelResponse(packet) {
-  //   this.#checkRequestStack(packet);
-  //   sendMessage(this.#getBatteryLevel(packet), 3000);
-  // }
-
-  /**
-  @param {DataView} packet
-  @returns {void}
-  */
-  getAccelerometerResponse(packet) {
-    this.#checkRequestStack(packet);
-    const time = utils.readTimestamp(packet)
-    const x = packet.getInt16(7);
-    const y = packet.getInt16(9);
-    const z = packet.getInt16(11);
-    sendMessage(time + "; Acceleration: x=" + x + "mg, y=" + y + "mg, z=" + z + "mg", 5000);
+    return this.robot.readBatteryLevel(packet);
   }
 
   /**
   @param {DataView} packet
-  @returns {void}
+  @returns {Button}
   */
   touchSensorEvent(packet) {
     this.#updateEventID(packet);
-    const time = utils.readTimestamp(packet)
-    // const state = packet.getUint8(7).toString(2).padStart(8, '0').slice(0, 2);
-    const buttons = [false, false];
-    // switch (state) {
-    //   case "00": buttons = " No Button"; break;
-    //   case "01": buttons = " Button 2"; break;
-    //   case "10": buttons = " Button 1"; break;
-    //   case "11": buttons = " Both Buttons"; break;
-    // }
+    // const time = utils.readTimestamp(packet)
+    const /**@type {Button}*/button = [false, false];
     switch (packet.getUint8(7)) {
-      case 16: buttons[1] = true; break;
-      case 32: buttons[0] = true; break;
-      case 48: buttons[0] = true, buttons[1] = true; break;
+      case 16: button[1] = true; break;
+      case 32: button[0] = true; break;
+      case 48: button[0] = true, button[1] = true; break;
   }
-    sendMessage(time + buttons.toString(), 3000);
+    return button;
   }
 
   /**
   @param {DataView} packet
-  @returns {void}
+  @returns {DockingSensors}
   */
   dockingSensorEvent(packet) {
     this.#updateEventID(packet);
-    sendMessage(this.#dockingSensor(packet), 3000);
+    return this.robot.readDockingSensor(packet);
   }
 
   /**
   @param {DataView} packet
   @returns {void}
-  */
-  getDockingValuesResponse(packet) {
-    this.#checkRequestStack(packet);
-    sendMessage(this.#dockingSensor(packet), 5000);
-  }
-
-  /**
-  @param {DataView} packet
-  @returns {void}
+  @todo return an object
   */
   cliffEvent(packet) {
     this.#updateEventID(packet);
@@ -324,21 +137,12 @@ export default class Events {
 
   /**
   @param {DataView} packet
-  @returns {void}
+  @returns {IPv4Addresses}
   */
   IPv4ChangeEvent(packet) {
     this.#updateEventID(packet);
-    sendMessage(this.#IPv4Addresses(packet), 5000);
+    return this.robot.readIPv4Addresses(packet);
   }
-
-  // /**
-  // @param {Uint8Array} packet
-  // @returns {void}
-  // */
-  // getIPv4AddressesResponse(packet) {
-  //   this.#checkRequestStack(packet);
-  //   sendMessage(this.#IPv4Addresses(packet), 5000);
-  // }
 
   /**
   @param {DataView} packet
@@ -360,96 +164,7 @@ export default class Events {
   @param {DataView} packet
   @returns {void}
   */
-  #positionStatus(packet) {
-    const x = packet.getInt32(7);
-    const y = packet.getInt32(11);
-    const heading = packet.getInt16(15)/10.0;
-    const time = utils.readTimestamp(packet);
-    sendMessage(time, 3000);
-    sendMessage("x: " + x / 10.0 + "cm", 3000);
-    sendMessage("y: " + y / 10.0 + "cm", 3000);
-    sendMessage("heading: " + heading.toString() + "°", 3000);
-  }
-
-  /**
-  @param {DataView} packet
-  @returns {string}
-  */
-  #dockStatus(packet) {
-    const time = utils.readTimestamp(packet);
-    let status = "Unknown";
-    switch (packet.getUint8(7)) {
-      case 0: status = "Succeeded"; break;
-      case 1: status = "Aborted"; break;
-      case 4: status = "Canceled"; break;
-    }
-    const result = packet.getUint8(8) === 0 ? "Not docked" : "Docked";
-    return [time, result, status].join("\n");
-  }
-
-  /**
-  @typedef {{timestamp: string, triggered: boolean[], value: number[]}} IRSensors
-  @param {DataView} packet
-  @returns {IRSensors} Sensors 0 to 6, left to right from robot's point of view
-  */
-  #packedIRProximity(packet) {
-    const timestamp = utils.readTimestamp(packet)
-
-    const numberOfSensors = 7;
-    const triggered = new Array(numberOfSensors);;
-    const value = new Array(numberOfSensors);
-
-    for (let i = 0; i < numberOfSensors; i++) {
-      triggered[i] = packet.getUint8(7) & 2 ** i ? true : false;
-      value[i] = packet.getUint8(i+8)*16 + ((packet.getUint8(Math.floor(i/2) + 15) >> 4*(1-i%2)) & 15);
-    }
-    
-    return {timestamp: timestamp, triggered: triggered, value: value};
-  }
-
-  /**
-  @param {DataView} packet
-  @returns {string}
-  */
-  #getBatteryLevel(packet) {
-    const timestamp = utils.readTimestamp(packet)
-    const voltage = packet.getUint16(7);
-    const percent = packet.getUint16(9);
-
-    return timestamp + " Battery: " + voltage / 1000.0 + "V, " + percent + "%";
-  }
-
-  /**
-  @param {DataView} packet
-  @returns {string}
-  */
-  #dockingSensor(packet) {
-    const time = utils.readTimestamp(packet);
-    const contacts = packet.getUint8(7);
-    const irSensor0 = packet.getUint8(8);
-    const irSensor1 = packet.getUint8(9);
-    // const irSensor2 = packet.getUint8(10);
-    return time + " Contacts: " + contacts + "IR Sensor 0: " + irSensor0 + "IR Sensor 1: " + irSensor1;
-  }
-
-  /**
-  @param {DataView} packet
-  @returns {string}
-  */
-  #IPv4Addresses(packet) {
-    const uint8 = new Uint8Array(packet.buffer);
-    const wlan0 = uint8.subarray(3, 7).join(".");
-    const wlan1 = uint8.subarray(7, 11).join(".");
-    const usb0 = uint8.subarray(11, 15).join(".");
-    return "wlan0: " + wlan0 + " wlan1: " + wlan1 + " usb0: " + usb0;
-  }
-
-  /**
-  @param {DataView} packet
-  @returns {void}
-  */
   #updateEventID(packet) {
-    // const eventID = /**@type {number}*/(packet.at(2));
     const eventID = packet.getUint8(2);
     const oldEventID = Number(sessionStorage.getItem(this.robot.eventID))
     let lostPackets = eventID - (oldEventID + 1);
@@ -460,23 +175,23 @@ export default class Events {
     sessionStorage.setItem(this.robot.eventID, eventID.toString());
   }
 
-  /**
-  @param {DataView} packet
-  @returns {void}
-  */
-  #checkRequestStack(packet) {
-    const uint8 = new Uint8Array(packet.buffer);
-    if (this.robot.requestStack.size === 0) {
-      sendMessage("No responses expected!", 3000);
-      return;
-    }
+  // /**
+  // @param {DataView} packet
+  // @returns {void}
+  // */
+  // #checkRequestStack(packet) {
+  //   const uint8 = new Uint8Array(packet.buffer);
+  //   if (this.robot.requestStack.size === 0) {
+  //     sendMessage("No responses expected!", 3000);
+  //     return;
+  //   }
 
-    if (this.robot.requestStack.delete(uint8.subarray(0, 3).toString())) {
-      sendMessage("Received response", 500);
-    }
+  //   if (this.robot.requestStack.delete(uint8.subarray(0, 3).toString())) {
+  //     sendMessage("Received response", 500);
+  //   }
 
-    if (this.robot.requestStack.size > 0) {
-      sendMessage(this.robot.requestStack.size + " unresponded request(s)", 4000);
-    }
-  }
+  //   if (this.robot.requestStack.size > 0) {
+  //     sendMessage(this.robot.requestStack.size + " unresponded request(s)", 4000);
+  //   }
+  // }
 }

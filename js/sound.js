@@ -1,4 +1,5 @@
 import { Robot } from './robot.js';
+import * as utils from './utils.js';
 
 export default class Sound {
   robot;
@@ -20,18 +21,18 @@ export default class Sound {
   async playNote(frequency, duration) {
     const payload = new Uint8Array(6);
 
-    const frequencyBytes = this.robot.getBytes(frequency, 4, false);
-    const durationBytes = this.robot.getBytes(duration, 2, false);
+    const frequencyBytes = utils.getBytes(frequency, 4, false);
+    const durationBytes = utils.getBytes(duration, 2, false);
     payload.set(frequencyBytes.concat(durationBytes));
 
-    await this.robot.sendPacket(this.device, 0, true, payload);
+    await this.robot.sendPacketWithResponse("playNoteFinishedResponse", this.device, 0, payload);
   }
 
   /**
   @returns {Promise<void>}
   */
   async stopSound() {
-    await this.robot.sendPacket(this.device, 1);
+    await this.robot.sendPacketWithoutResponse(this.device, 1);
   }
 
   /**
@@ -41,7 +42,7 @@ export default class Sound {
   async sayPhrase(phrase) {
     const encoder = new TextEncoder();
     const payload = encoder.encode(phrase).subarray(0, 16);
-    await this.robot.sendPacket(this.device, 4, true, payload);
+    await this.robot.sendPacketWithResponse("sayPhraseFinishedResponse", this.device, 4, payload);
   }
 
   /**
@@ -70,12 +71,12 @@ export default class Sound {
     appendSweep
   ) {
     const payload = new Uint8Array(16);
-    const startFrequencyBytes = this.robot.getBytes(startFrequency, 4, false);
-    const endFrequencyBytes = this.robot.getBytes(endFrequency, 4, false);
-    const durationBytes = this.robot.getBytes(duration, 2, false);
-    const attackBytes = this.robot.getBytes(attack, 1, false);
-    const releaseBytes = this.robot.getBytes(release, 1, false);
-    const volumeBytes = this.robot.getBytes(volume, 1, false);
+    const startFrequencyBytes = utils.getBytes(startFrequency, 4, false);
+    const endFrequencyBytes = utils.getBytes(endFrequency, 4, false);
+    const durationBytes = utils.getBytes(duration, 2, false);
+    const attackBytes = utils.getBytes(attack, 1, false);
+    const releaseBytes = utils.getBytes(release, 1, false);
+    const volumeBytes = utils.getBytes(volume, 1, false);
 
     let modulation;
     switch (modulationType) {
@@ -85,7 +86,7 @@ export default class Sound {
       case "frequency": modulation = 3; break;
     }
 
-    const modulationRateBytes = this.robot.getBytes(modulationRate, 1, false);
+    const modulationRateBytes = utils.getBytes(modulationRate, 1, false);
     const append = appendSweep ? 1 : 0;
 
     const bytes = startFrequencyBytes.concat(
@@ -101,6 +102,6 @@ export default class Sound {
 
     payload.set(bytes);
 
-    await this.robot.sendPacket(this.device, 5, true, payload);
+    await this.robot.sendPacketWithResponse("playSweepFinishedResponse", this.device, 5, payload);
   }
 }

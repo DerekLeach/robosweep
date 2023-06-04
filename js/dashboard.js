@@ -24,6 +24,11 @@ export default class Dashboard {
   @returns {void}
   */
   display(robot, div) {
+    const stopButton = document.createElement('button');
+    stopButton.innerText = "Stop!";
+    stopButton.disabled = true;
+    div.append(stopButton);
+
     // const infoButton = document.createElement('button');
     // infoButton.innerText = "Info";
     // infoButton.addEventListener('click', () => this.getRobotInfo(robot.server))
@@ -126,23 +131,28 @@ export default class Dashboard {
 
     const updateButton = document.createElement('button');
     updateButton.innerText = this.toTitleCase("update");
-    updateButton.addEventListener('click', () => robot.requestEasyUpdate())
+    updateButton.addEventListener('click', () => robot.requestEasyUpdate());
     div.append(updateButton);
 
     const changeNameButton = document.createElement('button');
     changeNameButton.innerText = this.toTitleCase("changeName");
-    changeNameButton.addEventListener('click', () => robot.general.setName("iRobot-6CD80E0AA"))
+    changeNameButton.addEventListener('click', () => robot.general.setName("iRobot-6CD80E0AA"));
     div.append(changeNameButton);
 
     const accelerometerButton = document.createElement('button');
     accelerometerButton.innerText = this.toTitleCase("accelerometer");
-    accelerometerButton.addEventListener('click', () => robot.getAccelerometer())
+    accelerometerButton.addEventListener('click', () => robot.getAccelerometer());
     div.append(accelerometerButton);
 
 
+    const controller = new AbortController();
     const executeCommandsButton = document.createElement('button');
     executeCommandsButton.innerText = this.toTitleCase("Run program");
-    executeCommandsButton.addEventListener('click', () => this.#someProgram(robot, executeCommandsButton))
+    executeCommandsButton.addEventListener(
+      'click',
+      () => this.#someProgram(robot, executeCommandsButton, controller, stopButton),
+      { signal: controller.signal }
+    );
     div.append(executeCommandsButton);
 
     document.getElementsByTagName('main')[0].append(div);
@@ -156,33 +166,27 @@ export default class Dashboard {
   /**
   @param {Robot} robot
   @param {HTMLButtonElement} button
+  @param {AbortController} controller
+  @param {HTMLButtonElement} stopButton
   @returns {Promise<void>}
   */
-  async #someProgram(robot, button) {
+  async #someProgram(robot, button, controller, stopButton) {
+    button.disabled = true;
+    controller.abort();
+
+    stopButton.addEventListener('click', () => {
+      const newController = new AbortController();
+
+      button.addEventListener(
+        'click',
+        () => this.#someProgram(robot, button, newController, stopButton),
+        { signal: newController.signal }
+      );
+      button.disabled = false;
+    });
+
     const program = new Sweep(robot);
-    await program.start();
-
-    // /** @type {[number, number, number, number, number, number, number]}*/
-    // const thresholds = [300, 300, 300, 300, 300, 300, 300];
-
-    // if (!await robot.irProximity.setEventThresholds(30, thresholds)) {
-    //   throw Error("Couldn't set thresholds");
-    // }
-
-    // const {contacts: docked, ...sensors} = await robot.getDockingValues();
-    // console.log(sensors);
-
-    // if (docked) {
-    //   const {status, result} = await robot.motors.undock();
-    //   if (status !== 'succeeded' || result === 'docked') throw Error("Undocking failed");
-    // }
-  
-    // await robot.motors.setLeftAndRightMotorSpeed(50, 50);
-    // await robot.motors.driveDistance(200)
-
-
-    // await robot.motors.dock();
-
+    await program.start(stopButton);
   }
 
   /**
@@ -222,10 +226,10 @@ export default class Dashboard {
     const protocolListItem = document.createElement('li');
     protocolListItem.innerText = "Bluetooth protocol: " + versionNumbers.bluetoothProtocol;
     list.append(protocolListItem);
-    
+
     const batteryListItem = document.createElement('li');
     const { percent, milliVolts } = await robot.getBatteryLevel();
-    batteryListItem.innerText = "Battery: " + percent + "% (" + milliVolts/1000 + "V)";
+    batteryListItem.innerText = "Battery: " + percent + "% (" + milliVolts / 1000 + "V)";
     list.append(batteryListItem);
 
     // const serialNumberListItem = document.createElement('li');

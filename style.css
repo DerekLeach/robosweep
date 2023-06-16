@@ -67,6 +67,10 @@ td:last-child {
   border-bottom-right-radius: var(--border-rounding);
 }
 
+canvas {
+  border: 1px solid black;
+}
+
 .alert {
   padding: 20px;
   border: 1px solid #d6e9c6;

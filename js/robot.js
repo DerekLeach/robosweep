@@ -313,13 +313,13 @@ export class Robot {
   }
 
   /**
-  @param {string} event
+  @param {string} eventName
   @param {number} device
   @param {number} command
   @param {Uint8Array} [payload]
   @returns {Promise<DataView>}
   */
-  async sendPacketWithResponse(event, device, command, payload) {
+  async sendPacketWithResponse(eventName, device, command, payload) {
     const packet = this.#assemblePacket(device, command, payload)
     // const packetID = packet.subarray(0, 3).toString();
     const controller = new AbortController();
@@ -327,10 +327,10 @@ export class Robot {
     const result = new Promise((resolve) => {
       // @ts-ignore
       this.tx.addEventListener(
-        event,
-        (ev) => {
+        eventName,
+        (event) => {
           controller.abort();
-          resolve(/**@type {CustomEvent}*/(ev).detail.packet);
+          resolve(/**@type {CustomEvent}*/(event).detail.packet);
         },
         // @ts-ignore
         { signal: controller.signal }

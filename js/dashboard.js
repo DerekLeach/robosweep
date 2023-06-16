@@ -2,7 +2,7 @@ import { Robot } from './robot.js';
 import Sweep from './sweep.js';
 
 export default class Dashboard {
-  robot;
+  // robot;
   div;
 
   /**
@@ -36,7 +36,7 @@ export default class Dashboard {
 
     const undockButton = document.createElement('button');
     undockButton.innerText = "Undock";
-    undockButton.addEventListener('click', () => robot.motors.undock());
+    undockButton.addEventListener('click', async () => await robot.motors.undock());
     div.append(undockButton);
 
     const dockButton = document.createElement('button');
@@ -155,12 +155,41 @@ export default class Dashboard {
     );
     div.append(executeCommandsButton);
 
+    this.addMap(robot, div);
+
     document.getElementsByTagName('main')[0].append(div);
-    this.#getRobotInfo(robot, div);
+    // this.#getRobotInfo(robot, div);
   }
 
   remove() {
     this.div.remove()
+  }
+
+  /**
+  @param {Robot} robot
+  @param {HTMLDivElement} div
+  */
+  async addMap(robot, div) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 500;
+    canvas.height = 400;
+
+    const dockingStatus = await this.robot.getDockingValues();
+    const position = await robot.motors.getPosition();
+
+    const offscreen = canvas.transferControlToOffscreen();
+    const mapWorker = new Worker('../workers/map.js');
+    mapWorker.postMessage({ canvas: offscreen, dockingStatus: dockingStatus, position: position }, [offscreen]);
+    div.append(canvas);
+
+
+    robot.tx.addEventListener("getPositionResponse", (event) => {
+      const packet = /**@type {CustomEvent}*/(event).detail.packet;
+      const x = packet.getInt32(7);
+      const y = packet.getInt32(11);
+      const heading = packet.getInt16(15) / 10.0;
+      mapWorker.postMessage({position: { x: x, y: y, heading: heading }});
+    });
   }
 
   /**

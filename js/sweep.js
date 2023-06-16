@@ -99,12 +99,12 @@ export default class Sweep {
   async #undock() {
     const distance = 300;
     let { x, y, heading } = await this.robot.motors.getPosition();
-    const theta = heading * (Math.PI / 180);
+    const θ = heading * (Math.PI / 180);
 
     // Find a point at distance (~30cm) behind the robot.
-    const p0 = { x: x - distance * Math.cos(theta), y: y - distance * Math.sin(theta) };
+    const p0 = { x: x - distance * Math.cos(θ), y: y - distance * Math.sin(θ) };
     // Find a second point to define a line at distance (~30cm) behind the robot.
-    const p1 = { x: p0.x + distance * Math.cos(theta + Math.PI / 2), y: p0.y + distance * Math.sin(theta + Math.PI / 2) };
+    const p1 = { x: p0.x + distance * Math.cos(θ + Math.PI / 2), y: p0.y + distance * Math.sin(θ + Math.PI / 2) };
 
     // Calculate on which side of the line the robot is.
     let d = (p1.x - p0.x) * (y - p0.y) - (x - p0.x) * (p1.y - p0.y);

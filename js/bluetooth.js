@@ -30,9 +30,9 @@ export async function displayBluetooth() {
 }
 
 /**
-* @param {HTMLButtonElement} button
-* @param {HTMLTableSectionElement} table
-* @returns {Promise<void>}
+@param {HTMLButtonElement} button
+@param {HTMLTableSectionElement} table
+@returns {Promise<void>}
 */
 async function scanForRobots(button, table) {
   button.disabled = true;

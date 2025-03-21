@@ -1,8 +1,18 @@
 import { Robot } from './robot.js';
 import sendMessage from './message.js';
 import * as utils from './utils.js';
+import { sendRequest } from './commands.js';
+import { tx } from './bluetooth.js';
+import { findRequest } from './commands.js';
+import {
+  ROTATE_ANGLE,
+  SET_LEFT_AND_RIGHT_MOTOR_SPEED,
+  DRIVE_DISTANCE
+} from './utils.js';
+
 /**
 @typedef {{status: "succeeded" | "aborted" | "canceled" | "unknown", result: "not docked" | "docked" }} DockStatus
+@typedef {{x: number, y: number, heading: number}} PositionStatus
 */
 
 export default class Motors {
@@ -28,7 +38,7 @@ export default class Motors {
     payload.set(utils.getBytes(leftMotorSpeed, 4, true, 100, -100));
     payload.set(utils.getBytes(rightMotorSpeed, 4, true, 100, -100), 4);
 
-    await this.robot.sendPacketWithoutResponse(this.device, command, payload);
+    await this.robot.sendPacket(this.device, command, payload);
   }
 
   /**
@@ -39,7 +49,7 @@ export default class Motors {
     const payload = new Uint8Array(8);
     payload.set(utils.getBytes(motorSpeed, 4, true, 100, -100));
 
-    await this.robot.sendPacketWithoutResponse(this.device, 6, payload);
+    await this.robot.sendPacket(this.device, 6, payload);
   }
 
   /**
@@ -50,7 +60,7 @@ export default class Motors {
     const payload = new Uint8Array(8);
     payload.set(utils.getBytes(motorSpeed, 4, true, 100, -100));
 
-    await this.robot.sendPacketWithoutResponse(this.device, 7, payload);
+    await this.robot.sendPacket(this.device, 7, payload);
   }
 
   /**
@@ -80,7 +90,7 @@ export default class Motors {
 
   /**
   @param {0 | 1} active 0: always off; 1: always on; 2: marker down (Root only)
-  @param {number} amount in deci-percent min 0 (off); max 3000 (300%); default 500 (50%)
+  @param {number} amount in deci-percent: min 0 (off); max 3000 (300%); default 500 (50%)
   @returns {Promise<void>}
   */
   async setGravityCompensation(active, amount = 500) {
@@ -88,22 +98,21 @@ export default class Motors {
     const bytes = utils.getBytes(amount, 2, false, 3000);
     payload.set([active]);
     payload.set(bytes, 1);
-    await this.robot.sendPacketWithoutResponse(this.device, 13, payload);
+    await this.robot.sendPacket(this.device, 13, payload);
   }
 
   /**
   @returns {Promise<void>}
   */
   async resetPosition() {
-    await this.robot.sendPacketWithoutResponse(this.device, 15);
+    await this.robot.sendPacket(this.device, 15);
   }
 
   /**
-  @returns {Promise<PositionStatus>}
+  @returns {Promise<void>}
   */
   async getPosition() {
-    const packet = await this.robot.sendPacketWithResponse("getPositionResponse", this.device, 16);
-    return this.#positionStatus(packet);
+    await this.robot.sendPacket(this.device, 16);
   }
 
   /**
@@ -169,7 +178,6 @@ export default class Motors {
   }
 
   /**
-  @typedef {{x: number, y: number, heading: number}} PositionStatus
   @param {DataView} packet
   @returns {PositionStatus}
   */
@@ -187,11 +195,91 @@ export default class Motors {
   #dockStatus(packet) {
     // const time = utils.readTimestamp(packet);
     const status = packet.getUint8(7) === 0 ? "succeeded" :
-                   packet.getUint8(7) === 1 ? "aborted" :
-                   packet.getUint8(7) === 4 ? "canceled" : "unknown";
+      packet.getUint8(7) === 1 ? "aborted" :
+        packet.getUint8(7) === 4 ? "canceled" : "unknown";
 
     const result = packet.getUint8(8) === 0 ? "not docked" : "docked";
     return { status: status, result: result };
   }
+}
 
+
+/**
+@param {number} leftMotorSpeed in mm per second
+@param {number} rightMotorSpeed in mm per second
+@returns {Promise<void>}
+*/
+export async function setLeftAndRightMotorSpeed(leftMotorSpeed, rightMotorSpeed) {
+  const payload = new Uint8Array(8);
+
+  if (leftMotorSpeed > 100)
+    leftMotorSpeed = 100;
+
+  if (leftMotorSpeed < -100)
+    leftMotorSpeed = -100;
+
+  if (rightMotorSpeed > 100)
+    rightMotorSpeed = 100;
+
+  if (rightMotorSpeed < -100)
+    rightMotorSpeed = -100;
+
+  const dataView = new DataView(payload.buffer);
+  dataView.setInt32(0, leftMotorSpeed);
+  dataView.setInt32(4, rightMotorSpeed);
+
+  await sendRequest("setLeftAndRightMotorSpeed", false, SET_LEFT_AND_RIGHT_MOTOR_SPEED, payload);
+}
+
+/**
+@param {number} distance in mm
+@returns {Promise<void>}
+*/
+export async function driveDistance(distance) {
+  const payload = new Uint8Array(4);
+  const dataView = new DataView(payload.buffer);
+  dataView.setInt32(0, distance);
+
+  if (tx === undefined)
+    return;
+  tx.addEventListener("characteristicvaluechanged", driveDistanceFinishedResponse);
+  await sendRequest("driveDistanceFinishedResponse", true, DRIVE_DISTANCE, payload);
+}
+
+/**
+ * @param {Event} event
+ * @return {void}
+ */
+function driveDistanceFinishedResponse(event) {
+  const tx = /**@type {BluetoothRemoteGATTCharacteristic}*/(event.target);
+  const requestFound = findRequest(tx.value, DRIVE_DISTANCE);
+  if (!requestFound)
+    return;
+  tx.removeEventListener("characteristicvaluechanged", driveDistanceFinishedResponse);
+}
+
+/**
+@param {number} angle in deci-degrees i.e. 3600 per rotation
+@returns {Promise<void>}
+*/
+export async function rotateAngle(angle) {
+  const payload = new Uint8Array(4);
+  const dataView = new DataView(payload.buffer);
+  dataView.setInt32(0, angle);
+  if (tx === undefined)
+    return;
+  tx.addEventListener("characteristicvaluechanged", rotateAngleFinishedResponse);
+  await sendRequest("rotateAngle", true, ROTATE_ANGLE, payload);
+}
+
+/**
+ * @param {Event} event
+ * @return {void}
+ */
+function rotateAngleFinishedResponse(event) {
+  const tx = /**@type {BluetoothRemoteGATTCharacteristic}*/(event.target);
+  const requestFound = findRequest(tx.value, ROTATE_ANGLE);
+  if (!requestFound)
+    return;
+  tx.removeEventListener("characteristicvaluechanged", rotateAngleFinishedResponse);
 }

@@ -32,7 +32,7 @@ export default class Sound {
   @returns {Promise<void>}
   */
   async stopSound() {
-    await this.robot.sendPacketWithoutResponse(this.device, 1);
+    await this.robot.sendPacket(this.device, 1);
   }
 
   /**

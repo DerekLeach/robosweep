@@ -4,20 +4,73 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <link rel="shortcut icon" href="assets/icon512.png" />
-  <link rel="canonical" href="https://derekleach.github.io/robosweep/" />
+  <link rel="shortcut icon" href="assets/android-launchericon-192-192.png" />
   <link rel="manifest" href="/manifest.json">
   <link rel="stylesheet" href="style.css">
-  <title>RoboSweep</title>
+  <script type="module" src="js/main.js"></script>
+  <script type="module" src="js/load-service-worker.js"></script>
+  <title>roboSweep</title>
 </head>
 
 <body>
-  <header></header>
-  <nav></nav>
+  <header>
+    <nav>
+      <menu>
+        <li id="devices-tab" class="tab selected-tab">Devices</li>
+        <li id="controls-tab" class="tab">Controls</li>
+        <li id="info-tab" class="tab">Info</li>
+        <li id="packets-tab" class="tab">Packets</li>
+        <li id="ir-sensors-tab" class="tab">IR Sensors</li>
+      </menu>
+      <div id="devices-tab-page" class="tab-page selected-tab">
+        <div class="menu-row">
+          <span class="menu-name">Scan for new devices:</span>
+          <button id="scan-button" disabled>Scan</button>
+        </div>
+      </div>
+      <div id="controls-tab-page" class="tab-page">
+        <button id="dock-button" disabled>Checking status...</button>
+        <button id="run-program" disabled>Run Program</button>
+      </div>
+      <div id="info-tab-page" class="tab-page">
+        <div class="menu-row">
+          <span class="menu-name">Battery Level:</span><span id="battery-level">Unknown</span>
+        </div>
+        <div class="menu-row">
+          <span class="menu-name">Webpage:</span><a id="ipv4-address" target="_blank">Unknown</a>
+        </div>
+      </div>
+      <div id="packets-tab-page" class="tab-page">
+        <ul id="request-queue" class="packet-queue">
+        </ul>
+        <ul id="event-queue" class="packet-queue">
+        </ul>
+      </div>
+      <div id="ir-sensors-tab-page" class="tab-page">
+        <form id="ir-thresholds">
+          <fieldset id="ir-thresholds-fieldset" disabled>
+            <ul>
+              <li><label>Hysteresis: <input id="ir-hysteresis" type="number" min="0" max="4095" /></label></li>
+              <li><label>Sensor 0: <input id="ir-sensor-0" type="number" min="0" max="4095" /></label></li>
+              <li><label>Sensor 1: <input id="ir-sensor-1" type="number" min="0" max="4095" /></label></li>
+              <li><label>Sensor 2: <input id="ir-sensor-2" type="number" min="0" max="4095" /></label></li>
+              <li><label>Sensor 3: <input id="ir-sensor-3" type="number" min="0" max="4095" /></label></li>
+              <li><label>Sensor 4: <input id="ir-sensor-4" type="number" min="0" max="4095" /></label></li>
+              <li><label>Sensor 5: <input id="ir-sensor-5" type="number" min="0" max="4095" /></label></li>
+              <li><label>Sensor 6: <input id="ir-sensor-6" type="number" min="0" max="4095" /></label></li>
+            </ul>
+            <button id="ir-save" type="submit">Save</button>
+          </fieldset>
+        </form>
+      </div>
+    </nav>
+  </header>
   <aside id="log"></aside>
-  <main></main>
-  <script type="module" src="js/main.js"></script>
-  <script type="module" src="js/load-service-worker.js"></script>
+  <main>
+    <div id="dashboard">
+      <canvas id="map" width="500" height="400"></canvas>
+    </div>
+  </main>
 </body>
 
 </html>

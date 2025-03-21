@@ -3,6 +3,9 @@
 /// <reference lib="esnext" />
 /// <reference lib="webworker" />
 
+/**@typedef {import('../js/ir-proximity.js').IRSensors} IRSensors*/
+/**@typedef {import('../js/motors.js').PositionStatus} PositionStatus*/
+
 // self.addEventListener('message', draw);
 class Draw {
   /**@type {OffscreenCanvas}*/
@@ -11,23 +14,27 @@ class Draw {
   /**@type {OffscreenCanvasRenderingContext2D}*/
   context;
 
-  /**
-  @typedef {{x: number, y: number, heading: number}} PositionStatus
-  @type {PositionStatus}
-  */
+  /** @type {PositionStatus} */
   startingPosition;
 
+  /** @type {PositionStatus} */
+  currentPosition;
+
+  /** @type {PositionStatus} */
+  chargingStation;
+
   /**@type {boolean}*/
-  chargingStation = false;
+  docked = false;
+
+  /**@type {IRSensors}*/
+  sensors = { triggered: [false, false, false, false, false, false, false], value: [0, 0, 0, 0, 0, 0, 0] };
 
   frontRadius = 341.9 / 2;
-
 
   /**
   @param {WorkerGlobalScope & typeof globalThis} worker
   */
   constructor(worker) {
-
     worker.addEventListener('message', this);
   }
 
@@ -41,24 +48,33 @@ class Draw {
       if (context instanceof OffscreenCanvasRenderingContext2D) {
         this.context = context;
       }
-      this.startingPosition = {
-        x: /**@type {number}*/(event.data.position.x),
-        y: /**@type {number}*/(event.data.position.y),
-        heading: /**@type {number}*/(event.data.position.heading),
-      }
+      // this.context.save();
+    }
 
-      if (event.data.dockingStatus.contacts) {
-        this.chargingStation = true;
+    if ("dockingStatus" in event.data) {
+      this.docked = event.data.dockingStatus.contacts;
+    }
+
+    if ("position" in event.data) {
+      this.currentPosition = /**@type {PositionStatus}*/(event.data.position);
+      if (typeof this.startingPosition === "undefined") {
+        this.startingPosition = this.currentPosition;
       }
-      this.context.save();
+      if (this.docked) this.chargingStation = this.currentPosition;
+    }
+
+    if ("sensors" in event.data) {
+      this.sensors = event.data.sensors;
     }
 
     if (this.context instanceof OffscreenCanvasRenderingContext2D) {
-      this.#scaleMap(this.context, this.startingPosition, event.data.position);
-      if (this.chargingStation) {
-        this.#drawChargingStation(this.context, this.startingPosition);
+      if (typeof this.currentPosition !== "undefined") {
+        this.#scaleMap(this.context, this.startingPosition, this.currentPosition);
+        if (typeof this.chargingStation !== "undefined") {
+          this.#drawChargingStation(this.context, this.chargingStation);
+        }
+        this.#drawRobot(this.context, this.currentPosition, this.sensors);
       }
-      this.#drawRobot(this.context, event.data.position);
     }
   }
 
@@ -69,7 +85,7 @@ class Draw {
   @returns {void}
   */
   #scaleMap(context, startingPosition, currentPosition) {
-    context.restore();
+    // context.restore();
     const margin = 400;
     let xMax, xMin, yMax, yMin;
     if (startingPosition.x > currentPosition.x) {
@@ -97,17 +113,17 @@ class Draw {
       zoom = zoomX;
       xMinClear = xMin;
       xMaxClear = xMax;
-      yMinClear = yMin - 0.5*(context.canvas.height/zoom - (yMax-yMin));
-      yMaxClear = yMax - 0.5*(context.canvas.height/zoom - (yMax-yMin));
+      yMinClear = yMin - 0.5 * (context.canvas.height / zoom - (yMax - yMin));
+      yMaxClear = yMax - 0.5 * (context.canvas.height / zoom - (yMax - yMin));
     } else {
       zoom = zoomY;
-      xMinClear = xMin - 0.5*(context.canvas.width/zoom - (xMax-xMin));
-      xMaxClear = xMax + 0.5*(context.canvas.width/zoom - (xMax-xMin));
+      xMinClear = xMin - 0.5 * (context.canvas.width / zoom - (xMax - xMin));
+      xMaxClear = xMax + 0.5 * (context.canvas.width / zoom - (xMax - xMin));
       yMinClear = yMin;
       yMaxClear = yMax;
     }
-    const  translateX = 0.5 * (context.canvas.width - zoom * (xMax + xMin));
-    const  translateY = 0.5 * (context.canvas.height + zoom * (yMax + yMin));
+    const translateX = 0.5 * (context.canvas.width - zoom * (xMax + xMin));
+    const translateY = 0.5 * (context.canvas.height + zoom * (yMax + yMin));
 
     context.setTransform(zoom, 0, 0, -zoom, translateX, translateY);
     context.clearRect(xMinClear, yMinClear, xMaxClear - xMinClear, yMaxClear - yMinClear);
@@ -164,10 +180,12 @@ class Draw {
   /**
   @param {OffscreenCanvasRenderingContext2D} context
   @param {PositionStatus} position
+  @param {IRSensors} sensors
   */
-  #drawRobot(context, position) {
+  #drawRobot(context, position, sensors) {
     // https://iroboteducation.github.io/create3_docs/hw/mechanical#ir-proximity-sensors
-    const sensorAngles = [-65.3, -34, -14.25, 3, 20, 38, 65.3];
+    // const sensorAngles = [-65.3, -34, -14.25, 3, 20, 38, 65.3];
+    const sensorAngles = [65.3, 38, 20, 3, -14.25, -34, -65.3];
     const frontRadius = 341.9 / 2;
     const backRadius = 162;
 
@@ -201,13 +219,20 @@ class Draw {
     context.lineJoin = "miter";
 
     const sensorArc = 4 * Math.PI / 180;
-    for (const sensorAngle of sensorAngles) {
+    for (const [i, sensorAngle] of sensorAngles.entries()) {
       const angle = sensorAngle * Math.PI / 180;
       const sensorX = backRadius * Math.cos(angle);
       const sensorY = backRadius * Math.sin(angle);
+      if (sensors.triggered[i]) {
+        context.fillStyle = "rgba(70, 0, 0, 0.5)";
+        context.strokeStyle = "rgba(70, 0, 0, 0.8)";
+      } else {
+        context.fillStyle = "rgba(0, 70, 0, 0.5)";
+        context.strokeStyle = "rgba(0, 70, 0, 0.8)";
+      }
       const sensor = new Path2D();
       sensor.arc(sensorX, sensorY, frontRadius - backRadius, angle - sensorArc, angle + sensorArc, false);
-      sensor.arc(sensorX, sensorY, frontRadius - backRadius + 300, angle + sensorArc, angle - sensorArc, true);
+      sensor.arc(sensorX, sensorY, frontRadius - backRadius + (204.8 - sensors.value[i] / 20), angle + sensorArc, angle - sensorArc, true);
       sensor.closePath();
       context.stroke(sensor);
       context.fill(sensor);

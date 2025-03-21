@@ -1,5 +1,5 @@
 import { Robot } from './robot.js';
-import Sweep from './sweep.js';
+import Sweep from './commands/sweep.js';
 
 export default class Dashboard {
   // robot;
@@ -21,9 +21,9 @@ export default class Dashboard {
   /**
   @param {Robot} robot
   @param {HTMLDivElement} div
-  @returns {void}
+  @returns {Promise<void>}
   */
-  display(robot, div) {
+  async display(robot, div) {
     const stopButton = document.createElement('button');
     stopButton.innerText = "Stop!";
     stopButton.disabled = true;
@@ -69,10 +69,10 @@ export default class Dashboard {
     getPositionButton.addEventListener('click', () => robot.motors.getPosition());
     div.append(getPositionButton);
 
-    const setMotorSpeed10Button = document.createElement('button');
-    setMotorSpeed10Button.innerText = this.toTitleCase("setMotorSpeed10");
-    setMotorSpeed10Button.addEventListener('click', () => robot.motors.setLeftAndRightMotorSpeed(20, 20));
-    div.append(setMotorSpeed10Button);
+    const setMotorSpeed40Button = document.createElement('button');
+    setMotorSpeed40Button.innerText = this.toTitleCase("setMotorSpeed10");
+    setMotorSpeed40Button.addEventListener('click', () => robot.motors.setLeftAndRightMotorSpeed(40, 40));
+    div.append(setMotorSpeed40Button);
 
     const setMotorSpeed0Button = document.createElement('button');
     setMotorSpeed0Button.innerText = this.toTitleCase("setMotorSpeed0");
@@ -155,7 +155,30 @@ export default class Dashboard {
     );
     div.append(executeCommandsButton);
 
-    this.addMap(robot, div);
+    this.addMap(div);
+
+    robot.tx.addEventListener("getPositionResponse", (event) => {
+      const packet = /**@type {CustomEvent}*/(event).detail.packet;
+      const x = packet.getInt32(7);
+      const y = packet.getInt32(11);
+      const heading = packet.getInt16(15) / 10.0;
+      this.robot.mapWorker.postMessage({position: { x: x, y: y, heading: heading }});
+    });
+
+    robot.tx.addEventListener("IRProximityEvent", (event) => {
+      const packet = /**@type {CustomEvent}*/(event).detail.packet;
+      const sensors = robot.readPackedIRProximity(packet);
+      this.robot.mapWorker.postMessage({sensors: sensors})
+    });
+
+    robot.tx.addEventListener("getDockingValuesResponse", (event) => {
+      const packet = /**@type {CustomEvent}*/(event).detail.packet;
+      const dockingStatus = this.robot.readDockingSensor(packet);
+      this.robot.mapWorker.postMessage({dockingStatus: dockingStatus})
+    });
+
+    await robot.getDockingValues();
+    await robot.motors.getPosition();
 
     document.getElementsByTagName('main')[0].append(div);
     // this.#getRobotInfo(robot, div);
@@ -166,30 +189,22 @@ export default class Dashboard {
   }
 
   /**
-  @param {Robot} robot
   @param {HTMLDivElement} div
+  @returns {void}
   */
-  async addMap(robot, div) {
+  addMap(div) {
     const canvas = document.createElement('canvas');
     canvas.width = 500;
     canvas.height = 400;
 
-    const dockingStatus = await this.robot.getDockingValues();
-    const position = await robot.motors.getPosition();
+    // const dockingStatus = await this.robot.getDockingValues();
+    // const position = await robot.motors.getPosition();
 
     const offscreen = canvas.transferControlToOffscreen();
-    const mapWorker = new Worker('../workers/map.js');
-    mapWorker.postMessage({ canvas: offscreen, dockingStatus: dockingStatus, position: position }, [offscreen]);
+    // const mapWorker = new Worker('../workers/map.js');
+    // mapWorker.postMessage({ canvas: offscreen, dockingStatus: dockingStatus, position: position }, [offscreen]);
+    this.robot.mapWorker.postMessage({canvas: offscreen}, [offscreen]);
     div.append(canvas);
-
-
-    robot.tx.addEventListener("getPositionResponse", (event) => {
-      const packet = /**@type {CustomEvent}*/(event).detail.packet;
-      const x = packet.getInt32(7);
-      const y = packet.getInt32(11);
-      const heading = packet.getInt16(15) / 10.0;
-      mapWorker.postMessage({position: { x: x, y: y, heading: heading }});
-    });
   }
 
   /**

@@ -7,7 +7,7 @@ import Events from './events.js';
 import * as utils from './utils.js';
 
 /**
-@typedef {{timestamp: string, triggered: boolean[], value: number[]}} IRSensors
+@typedef {{triggered: boolean[], value: number[]}} IRSensors
 @typedef {{percent: number, voltage: number}} BatteryLevel
 @typedef {{contacts: boolean, IRSensor0: number, IRSensor1: number}} DockingSensors
 @typedef {{ wlan0: string, wlan1: string, usb0: string }} IPv4Addresses
@@ -45,6 +45,21 @@ export class Robot {
   /**@type {Set<string>}*/
   requestStack = new Set();
 
+  /**@type {"obstacle" | undefined}*/
+  state;
+
+  /**@type {boolean | undefined}*/
+  docked = undefined;
+
+  /** @type {[number, number, number, number, number, number, number]}*/
+  irThresholds = [70, 70, 70, 70, 70, 70, 70];
+
+  /** @type {number}*/
+  hysteresis = 30;
+
+  /** @type {Worker}*/
+  mapWorker;
+
   general = new General(this);
   motors = new Motors(this);
   sound = new Sound(this);
@@ -55,11 +70,13 @@ export class Robot {
   @param {BluetoothRemoteGATTServer} server
   @param {BluetoothRemoteGATTCharacteristic} rx
   @param {BluetoothRemoteGATTCharacteristic} tx
+  @param {Worker} mapWorker
   */
-  constructor(server, rx, tx) {
+  constructor(server, rx, tx, mapWorker) {
     this.server = server;
     this.rx = rx;
     this.tx = tx;
+    this.mapWorker = mapWorker;
     this.eventID = "Event ID for: " + server.device.id;
     if (!sessionStorage.getItem(this.eventID)) {
       sessionStorage.setItem(this.eventID, "-1");
@@ -83,7 +100,7 @@ export class Robot {
         // const crc = packet.at(19);
         const utf8decoder = new TextDecoder();
         // const message = utf8decoder.decode(payload);
-        // console.log("Device: ", device, " command: ", command, " ID: ", packetID, "CRC: ", crc, " message: ", message, " payload: ", payload.toString());
+        // console.log("Device: ", device, " command: ", command, " ID: ", packetID, " message: ", message, " payload: ", payload.toString());
         switch (device) {
           case 0: // General
             switch (command) {
@@ -178,7 +195,7 @@ export class Robot {
   #eventDispatcher(event) {
     const packet = /**@type {BluetoothRemoteGATTCharacteristic}*/(event.target).value;
     if (packet instanceof DataView) {
-      if (utils.calculateCRC(packet) === 0) {
+      if (utils.checkCRC(packet) === 0) {
         let eventName;
         switch (packet.getUint16(0)) {
           case 0x0000: eventName = "getVersionsResponse"; break;
@@ -250,7 +267,7 @@ export class Robot {
     }
 
     payload.set([stateByte, red, green, blue]);
-    await this.sendPacketWithoutResponse(3, 2, payload);
+    await this.sendPacket(3, 2, payload);
   }
 
   /**
@@ -278,11 +295,10 @@ export class Robot {
   }
 
   /**
-  @returns {Promise<DockingSensors>}
+  @returns {Promise<Void>}
   */
   async getDockingValues() {
-    const packet = await this.sendPacketWithResponse("getDockingValuesResponse", 19, 1);
-    return this.readDockingSensor(packet);
+    await this.sendPacket(19, 1);
   }
 
   /**
@@ -297,7 +313,7 @@ export class Robot {
   @returns {Promise<void>}
   */
   async requestEasyUpdate() {
-    await this.sendPacketWithoutResponse(100, 2);
+    await this.sendPacket(100, 2);
   }
 
 
@@ -307,9 +323,9 @@ export class Robot {
   @param {Uint8Array} [payload]
   @returns {Promise<void>}
   */
-  async sendPacketWithoutResponse(device, command, payload) {
+  async sendPacket(device, command, payload) {
     const packet = this.#assemblePacket(device, command, payload)
-    return await this.rx.writeValueWithResponse(packet.buffer);
+    await this.rx.writeValueWithResponse(packet.buffer);
   }
 
   /**
@@ -378,7 +394,7 @@ export class Robot {
   @returns {IRSensors} Sensors 0 to 6, left to right from robot's point of view
   */
   readPackedIRProximity(packet) {
-    const timestamp = utils.readTimestamp(packet)
+    // const timestamp = utils.readTimestamp(packet)
 
     const numberOfSensors = 7;
     const triggered = new Array(numberOfSensors);;
@@ -389,7 +405,7 @@ export class Robot {
       value[i] = packet.getUint8(i + 8) * 16 + ((packet.getUint8(Math.floor(i / 2) + 15) >> 4 * (1 - i % 2)) & 15);
     }
 
-    return { timestamp: timestamp, triggered: triggered, value: value };
+    return { triggered: triggered, value: value };
   }
 
   /**

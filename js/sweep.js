@@ -1,124 +1,199 @@
-import { Robot } from './robot.js';
+import { tx } from './bluetooth.js';
+import { setLeftAndRightMotorSpeed, driveDistance, rotateAngle } from './motors.js';
+import { getPosition } from './commands.js';
+import { BUMPER_EVENT, DRIVE_DISTANCE, IR_PROXIMITY_EVENT, ROTATE_ANGLE } from './utils.js';
 
-export default class Sweep {
-  robot;
+const SPEED = 90;
+const SLOW_SPEED = 20;
+let intervalID = 0;
 
-  /**
-  @param {Robot} robot
-  */
-  constructor(robot) {
-    this.robot = robot;
+const NO_BUMPERS = 0x00;
+const RIGHT_BUMPER = 0x40;
+const LEFT_BUMPER = 0x80;
+const BOTH_BUMPERS = 0xC0;
+
+let bumperState = NO_BUMPERS;
+
+/**
+ * @param {Event} event
+ * @returns {Promise<void>}
+ */
+export async function startSweep(event) {
+  const button = /**@type {HTMLButtonElement}*/(event.target);
+  button.removeEventListener('click', startSweep);
+  button.addEventListener('click', stopSweep);
+  if (tx === undefined)
+    return;
+  button.innerText = "Stop Sweep";
+  tx.addEventListener("characteristicvaluechanged", collision);
+  tx.addEventListener("characteristicvaluechanged", detectObstacle);
+
+  await setLeftAndRightMotorSpeed(SPEED, SPEED);
+  // intervalID = setInterval(getPosition, 1000);
+}
+
+/**
+ * @param {Event} event
+ * @returns {Promise<void>}
+ */
+async function stopSweep(event) {
+  const button = /**@type {HTMLButtonElement}*/(event.target);
+  button.removeEventListener('click', stopSweep);
+  button.addEventListener('click', startSweep);
+  if (tx === undefined)
+    return;
+  button.innerText = "Start Sweep";
+  tx.removeEventListener("characteristicvaluechanged", collision);
+  tx.removeEventListener("characteristicvaluechanged", detectObstacle);
+  tx.removeEventListener("characteristicvaluechanged", clearObstacle);
+  await setLeftAndRightMotorSpeed(0, 0);
+  // clearInterval(intervalID);
+}
+
+/**
+ * @param {Event} event
+ * @returns {Promise<void>}
+ */
+async function detectObstacle(event) {
+  const tx = /**@type {BluetoothRemoteGATTCharacteristic}*/(event.target);
+  if (tx.value === undefined)
+    return;
+
+  if (tx.value.getUint16(0) !== IR_PROXIMITY_EVENT)
+    return;
+
+  const triggered = isIRProximityTriggered(tx.value);
+
+  if (!triggered)
+    return;
+
+  tx.removeEventListener("characteristicvaluechanged", detectObstacle);
+  tx.addEventListener("characteristicvaluechanged", clearObstacle);
+
+  await setLeftAndRightMotorSpeed(SLOW_SPEED, SLOW_SPEED);
+}
+
+/**
+ * @param {Event} event
+ * @returns {Promise<void>}
+ */
+async function clearObstacle(event) {
+  const tx = /**@type {BluetoothRemoteGATTCharacteristic}*/(event.target);
+  if (tx.value === undefined)
+    return;
+
+  if (tx.value.getUint16(0) !== IR_PROXIMITY_EVENT)
+    return;
+
+  const triggered = isIRProximityTriggered(tx.value);
+
+  if (triggered)
+    return;
+
+  tx.removeEventListener("characteristicvaluechanged", clearObstacle);
+  tx.addEventListener("characteristicvaluechanged", detectObstacle);
+
+  await setLeftAndRightMotorSpeed(SPEED, SPEED);
+}
+
+/**
+ * @param {Event} event
+ * @returns {Promise<void>}
+ */
+async function collision(event) {
+  const tx = /**@type {BluetoothRemoteGATTCharacteristic}*/(event.target);
+
+  if (tx.value === undefined)
+    return;
+
+  if (tx.value.getUint16(0) !== BUMPER_EVENT)
+    return;
+
+  bumperState = tx.value.getUint8(7);
+
+  if (bumperState === NO_BUMPERS)
+    return;
+
+  tx.removeEventListener("characteristicvaluechanged", detectObstacle);
+  tx.removeEventListener("characteristicvaluechanged", clearObstacle);
+  tx.removeEventListener("characteristicvaluechanged", collision);
+
+  await setLeftAndRightMotorSpeed(0, 0);
+
+  tx.addEventListener("characteristicvaluechanged", sweepDriveDistanceFinishedResponse);
+
+  await driveDistance(-40);
+}
+
+/**
+ * @param {Event} event
+ * @returns {Promise<void>}
+ */
+async function sweepDriveDistanceFinishedResponse(event) {
+  const tx = /**@type {BluetoothRemoteGATTCharacteristic}*/(event.target);
+  if (tx.value === undefined)
+    return;
+
+  if (tx.value.getUint16(0) !== DRIVE_DISTANCE)
+    return;
+
+  tx.removeEventListener("characteristicvaluechanged", sweepDriveDistanceFinishedResponse);
+  tx.addEventListener("characteristicvaluechanged", sweepRotateAngleFinishedResponse);
+
+  let angle = 0;
+
+  switch (bumperState) {
+    case RIGHT_BUMPER:
+      angle = Math.floor((Math.random() * -1200) - 300);
+      break;
+    case LEFT_BUMPER:
+      angle = Math.floor((Math.random() * 1200) + 300);
+      break;
+    case BOTH_BUMPERS:
+      angle = Math.floor((Math.random() * 1200) + 1200);
+      break;
+    default:
+      break;
   }
 
-  /**
-  @param {HTMLButtonElement} stopButton
-  */
-  async start(stopButton) {
-    /** @type {[number, number, number, number, number, number, number]}*/
-    const thresholds = [70, 70, 70, 70, 70, 70, 70];
+  await rotateAngle(angle);
+}
 
-    if (!await this.robot.irProximity.setEventThresholds(30, thresholds)) {
-      throw Error("Couldn't set thresholds");
-    }
+/**
+ * @param {Event} event
+ * @returns {Promise<void>}
+ */
+async function sweepRotateAngleFinishedResponse(event) {
+  const tx = /**@type {BluetoothRemoteGATTCharacteristic}*/(event.target);
+  if (tx.value === undefined)
+    return;
 
-    const { contacts: docked, ...sensors } = await this.robot.getDockingValues();
-    console.log(sensors);
+  if (tx.value.getUint16(0) !== ROTATE_ANGLE)
+    return;
 
-    if (docked) {
-      await this.#undock();
-    }
+  tx.removeEventListener("characteristicvaluechanged", sweepRotateAngleFinishedResponse);
 
-    const controller = new AbortController();
-    const emergencyStop = new AbortController();
-    stopButton.addEventListener('click', async () => {
-      emergencyStop.abort();
-      stopButton.disabled = true;
-      await this.robot.motors.setLeftAndRightMotorSpeed(0, 0);
-    });
+  tx.addEventListener("characteristicvaluechanged", collision);
+  tx.addEventListener("characteristicvaluechanged", detectObstacle);
 
-    // @ts-ignore
-    this.robot.tx.addEventListener(
-      "IRProximityEvent",
-      () => this.#obstacle(this.robot, controller, emergencyStop),
-      { signal: controller.signal }
-    );
+  await setLeftAndRightMotorSpeed(SPEED, SPEED);
+}
 
-    stopButton.disabled = false;
-    await this.robot.motors.setLeftAndRightMotorSpeed(30, 30);
+/**
+ * @param {DataView} packet
+ * @returns {boolean} Sensors 0 to 6, left to right from robot's point of view
+ */
+function isIRProximityTriggered(packet) {
+  // const timestamp = utils.readTimestamp(packet)
+
+  const numberOfSensors = 7;
+
+  for (let i = 0; i < numberOfSensors; i++) {
+    const triggered = packet.getUint8(7) & 2 ** i ? true : false;
+    if (triggered)
+      return true;
+    // sensors.value[i] = packet.getUint8(i + 8) * 16 + ((packet.getUint8(Math.floor(i / 2) + 15) >> 4 * (1 - i % 2)) & 15);
   }
 
-  /**
-  @param {Robot} robot
-  @param {AbortController} controller
-  @param {AbortController} emergencyStop
-  */
-  async #obstacle(robot, controller, emergencyStop) {
-    controller.abort();
-
-    while (!emergencyStop.signal.aborted) {
-      const sensors = await robot.irProximity.getPackedIRProximityValuesAndStates();
-
-      if (!sensors.triggered.includes(true)) break;
-      let leftSpeed = sensors.value.reduce((a, b, i) => a - 0.05 * b * (i + 1) + 7, 0);
-      let rightSpeed = sensors.value.reduce((a, b, i) => a - 0.05 * b * (7 - i) + 7, 0);
-      console.log(sensors);
-      console.log(leftSpeed, rightSpeed);
-
-      if (leftSpeed < 0) {
-        leftSpeed = Math.max(Math.floor(leftSpeed), -70);
-      } else {
-        leftSpeed = Math.min(Math.floor(leftSpeed), 70);
-      }
-
-      if (rightSpeed < 0) {
-        rightSpeed = Math.max(Math.floor(rightSpeed), -70);
-      } else {
-        rightSpeed = Math.min(Math.floor(rightSpeed), 70);
-      }
-
-      await robot.motors.setLeftAndRightMotorSpeed(leftSpeed, rightSpeed);
-    }
-
-    if (emergencyStop.signal.aborted) {
-      console.log("Detected abort");
-      await robot.motors.setLeftAndRightMotorSpeed(0, 0);
-    } else {
-      const newController = new AbortController();
-
-      // @ts-ignore
-      robot.tx.addEventListener(
-        "IRProximityEvent",
-        () => this.#obstacle(this.robot, newController, emergencyStop),
-        { signal: newController.signal }
-      );
-
-      await robot.motors.setLeftAndRightMotorSpeed(30, 30);
-    }
-  }
-
-  async #undock() {
-    const distance = 300;
-    let { x, y, heading } = await this.robot.motors.getPosition();
-    const θ = heading * (Math.PI / 180);
-
-    // Find a point at distance (~30cm) behind the robot.
-    const p0 = { x: x - distance * Math.cos(θ), y: y - distance * Math.sin(θ) };
-    // Find a second point to define a line at distance (~30cm) behind the robot.
-    const p1 = { x: p0.x + distance * Math.cos(θ + Math.PI / 2), y: p0.y + distance * Math.sin(θ + Math.PI / 2) };
-
-    // Calculate on which side of the line the robot is.
-    let d = (p1.x - p0.x) * (y - p0.y) - (x - p0.x) * (p1.y - p0.y);
-
-    await this.robot.motors.setLeftAndRightMotorSpeed(-80, -80);
-
-    while (d < 0) {
-      const position = await this.robot.motors.getPosition();
-
-      d = (p1.x - p0.x) * (position.y - p0.y) - (position.x - p0.x) * (p1.y - p0.y);
-      // console.log(d);
-    }
-
-    await this.robot.motors.setLeftAndRightMotorSpeed(0, 0);
-    await this.robot.motors.rotateAngle(1800);
-  }
+  return false;
 }
